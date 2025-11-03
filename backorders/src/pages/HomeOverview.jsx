@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Row, Col, Card, Modal, Table, Badge } from 'react-bootstrap';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { dateDiffInDays, formatDate } from '../utils/utils';
+import { dateDiffInDays } from '../utils/utils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
