@@ -617,19 +617,56 @@
   
   /* Modal adjustments */
   .modal-content {
-    margin: 1rem;
-    max-width: calc(100vw - 2rem);
+    margin: 0.5rem;
+    max-width: calc(100vw - 1rem);
+    width: calc(100vw - 1rem) !important;
+  }
+  
+  .modal-dialog {
+    margin: 0.5rem auto;
+    max-width: calc(100vw - 1rem) !important;
+  }
+  
+  .modal-dialog.modal-lg,
+  .modal-dialog.modal-xl {
+    max-width: calc(100vw - 1rem) !important;
   }
   
   .modal-header,
   .modal-body,
   .modal-footer {
-    padding: 1rem;
+    padding: 0.75rem;
+  }
+  
+  .modal-body {
+    max-height: calc(100vh - 150px) !important;
+    overflow-y: auto;
   }
   
   .modal-body .row {
     margin-left: -0.5rem;
     margin-right: -0.5rem;
+  }
+  
+  .modal-body .col-12,
+  .modal-body .col-sm-6,
+  .modal-body .col-md-4,
+  .modal-body .col-md-6 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .modal-body .table-responsive {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  
+  .modal-body .p-3 {
+    padding: 0.75rem !important;
+  }
+  
+  .modal-title {
+    font-size: 1rem;
   }
   
   /* Typography adjustments */
