@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Row, Col, Card, Form, Button, Table, Carousel, Modal } from 'react-bootstrap';
 import { formatDate, dateDiffInDays, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
@@ -12,7 +12,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [showChartModal, setShowChartModal] = useState(false);
-  const [chartModalData, setChartModalData] = useState({ title: '', content: null });
+  const [chartModalData] = useState({ title: '', content: null });
   const highlightedRowRef = useRef(null);
   const tableRef = useRef(null);
 

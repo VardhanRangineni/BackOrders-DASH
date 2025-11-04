@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Row, Col, Card, Form, Button, Table, Carousel, Modal } from 'react-bootstrap';
 import { dateDiffInHours, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
@@ -15,7 +15,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [skuFilter, setSkuFilter] = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] = useState('All');
   const [showChartModal, setShowChartModal] = useState(false);
-  const [chartModalData, setChartModalData] = useState({ title: '', content: null });
+  const [chartModalData] = useState({ title: '', content: null });
   const [showRetryOnly, setShowRetryOnly] = useState(false);
   const [showMarketPurchaseOnly, setShowMarketPurchaseOnly] = useState(false);
   const tableRef = useRef(null);
