@@ -11,10 +11,8 @@ import { webOrders as initialWebOrders, sourcingOrders as initialSourcingOrders 
 import './App.css';
 
 function App() {
-  // Initialize sidebar based on screen size
-  const [sidebarMode, setSidebarMode] = useState(
-    window.innerWidth <= 768 ? 'collapsed' : 'expanded'
-  );
+  // Initialize sidebar as collapsed by default
+  const [sidebarMode, setSidebarMode] = useState('collapsed');
   const [activePage, setActivePage] = useState('home');
   const [webOrders, setWebOrders] = useState(initialWebOrders);
   const [sourcingOrders, setSourcingOrders] = useState(initialSourcingOrders);
