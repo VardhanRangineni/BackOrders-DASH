@@ -6,7 +6,6 @@ import Toast from './components/Toast';
 import HomeOverview from './pages/HomeOverview';
 import WebOrderBacklog from './pages/WebOrderBacklog';
 import SourcingView from './pages/SourcingView';
-import ReportScheduler from './pages/ReportScheduler';
 import { webOrders as initialWebOrders, sourcingOrders as initialSourcingOrders } from './data/mockData';
 import './App.css';
 
@@ -17,6 +16,10 @@ function App() {
   const [webOrders, setWebOrders] = useState(initialWebOrders);
   const [sourcingOrders, setSourcingOrders] = useState(initialSourcingOrders);
   const [highlightedWebOrder, setHighlightedWebOrder] = useState(null);
+  
+  // Page filter states
+  const [webOrderFilters, setWebOrderFilters] = useState({});
+  const [sourcingFilters, setSourcingFilters] = useState({});
   
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,7 +72,15 @@ function App() {
   const renderPage = () => {
     switch (activePage) {
       case 'home':
-        return <HomeOverview webOrders={webOrders} sourcingOrders={sourcingOrders} />;
+        return (
+          <HomeOverview 
+            webOrders={webOrders} 
+            sourcingOrders={sourcingOrders}
+            onNavigate={handleNavigate}
+            setWebOrderFilters={setWebOrderFilters}
+            setSourcingFilters={setSourcingFilters}
+          />
+        );
       case 'web-order':
         return (
           <WebOrderBacklog
@@ -79,6 +90,8 @@ function App() {
             onOpenModal={handleOpenModal}
             highlightedWebOrder={highlightedWebOrder}
             setHighlightedWebOrder={setHighlightedWebOrder}
+            initialFilters={webOrderFilters}
+            clearFilters={() => setWebOrderFilters({})}
           />
         );
       case 'sourcing':
@@ -90,13 +103,8 @@ function App() {
             onOpenModal={handleOpenModal}
             onNavigate={handleNavigate}
             setHighlightedWebOrder={setHighlightedWebOrder}
-          />
-        );
-      case 'reports':
-        return (
-          <ReportScheduler
-            onShowToast={handleShowToast}
-            onOpenModal={handleOpenModal}
+            initialFilters={sourcingFilters}
+            clearFilters={() => setSourcingFilters({})}
           />
         );
       default:

@@ -1,27 +1,20 @@
 import React from 'react';
 import { Dropdown } from 'react-bootstrap';
 
-const ActionDropdown = ({ orderId, actions, onActionSelect }) => {
-  // If only one action, show as button
-  if (actions.length === 1) {
-    return (
-      <button
-        className="btn btn-link btn-sm p-0"
-        onClick={() => onActionSelect(orderId, actions[0].value)}
-      >
-        {actions[0].label}
-      </button>
-    );
-  }
+const ActionDropdown = ({ orderId, actions, onActionSelect, dropDirection = 'down' }) => {
+  // Custom style for dropdown menu to allow scrolling if too tall
+  const menuStyle = {
+    maxHeight: '220px',
+    overflowY: 'auto',
+  };
 
-  // If multiple actions, show as dropdown
   return (
-    <Dropdown>
+    <Dropdown drop={dropDirection} container={document.body}>
       <Dropdown.Toggle variant="link" size="sm" className="p-0 text-decoration-none">
         Actions
       </Dropdown.Toggle>
 
-      <Dropdown.Menu>
+      <Dropdown.Menu style={menuStyle}>
         {actions.map((action, index) => (
           <Dropdown.Item
             key={index}

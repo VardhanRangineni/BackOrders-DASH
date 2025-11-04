@@ -1,172 +1,96 @@
-import React, { useState } from 'react';
-import { Row, Col, Card, Modal, Table, Badge } from 'react-bootstrap';
+import React from 'react';
+import { Row, Col, Card } from 'react-bootstrap';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { dateDiffInDays } from '../utils/utils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
-const HomeOverview = ({ webOrders, sourcingOrders }) => {
-  const [showModal, setShowModal] = useState(false);
-  const [modalData, setModalData] = useState({ title: '', content: null });
+const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilters, setSourcingFilters }) => {
 
   const handleCardClick = (type) => {
-    let title = '';
-    let content = null;
-
     switch(type) {
       case 'total':
-        title = 'Total Back Orders - Detailed Breakdown';
-        content = (
-          <Table striped bordered hover size="sm">
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Status</th>
-                <th>Age (Days)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {webOrders.slice(0, 10).map(order => (
-                <tr key={order.id}>
-                  <td>{order.id}</td>
-                  <td>{order.customer}</td>
-                  <td>
-                    <Badge bg={order.overallStatus === 'Completed' ? 'success' : 'warning'} text="dark">
-                      {order.overallStatus || order.status}
-                    </Badge>
-                  </td>
-                  <td>{order.age}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        );
+        // Navigate to Web Order Backlog with no filters (show all)
+        setWebOrderFilters({});
+        onNavigate('web-order');
         break;
       
       case 'pending':
-        const pendingOrders = webOrders.filter(o => (o.overallStatus || o.status) === 'Pending Sourcing');
-        title = `Pending Sourcing Orders (${pendingOrders.length})`;
-        content = (
-          <Table striped bordered hover size="sm">
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Age (Days)</th>
-                <th>Items</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingOrders.map(order => (
-                <tr key={order.id}>
-                  <td>{order.id}</td>
-                  <td>{order.customer}</td>
-                  <td>
-                    <Badge bg={order.age > 7 ? 'danger' : order.age > 3 ? 'warning' : 'info'} text="dark">
-                      {order.age}
-                    </Badge>
-                  </td>
-                  <td>{order.items?.length || 1}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        );
+        // Navigate to Web Order Backlog filtered by Pending Sourcing
+        setWebOrderFilters({ statusFilter: 'Pending Sourcing' });
+        onNavigate('web-order');
         break;
       
       case 'sourcing':
-        title = `Total Sourcing Documents (${sourcingOrders.length})`;
-        content = (
-          <div>
-            <Row className="mb-3">
-              <Col>
-                <div className="p-3 bg-light rounded">
-                  <h6>Transfer Orders (TO)</h6>
-                  <h4>{sourcingOrders.filter(o => o.type === 'TO').length}</h4>
-                </div>
-              </Col>
-              <Col>
-                <div className="p-3 bg-light rounded">
-                  <h6>Purchase Orders (PO)</h6>
-                  <h4>{sourcingOrders.filter(o => o.type === 'PO').length}</h4>
-                </div>
-              </Col>
-            </Row>
-            <Table striped bordered hover size="sm">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Doc ID</th>
-                  <th>Status</th>
-                  <th>Web Order</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sourcingOrders.slice(0, 10).map(order => (
-                  <tr key={order.id}>
-                    <td><Badge bg={order.type === 'TO' ? 'primary' : 'info'} text="dark">{order.type}</Badge></td>
-                    <td>{order.docId}</td>
-                    <td><Badge bg={order.status === 'Fulfilled' ? 'success' : 'warning'} text="dark">{order.status}</Badge></td>
-                    <td>{order.webOrder}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        );
+        // Navigate to Sourcing View with no filters (show all)
+        setSourcingFilters({});
+        onNavigate('sourcing');
         break;
       
       case 'retry':
-        const retriedOrders = sourcingOrders.filter(o => o.retry > 0);
-        title = `Retry Analysis (${retriedOrders.length} Retries)`;
-        content = (
-          <div>
-            <Row className="mb-3">
-              <Col md={6}>
-                <div className="p-3 bg-light rounded">
-                  <h6>Successful Retries</h6>
-                  <h4 className="text-success">{retriedOrders.filter(o => o.status === 'Fulfilled').length}</h4>
-                </div>
-              </Col>
-              <Col md={6}>
-                <div className="p-3 bg-light rounded">
-                  <h6>Failed Retries</h6>
-                  <h4 className="text-danger">{retriedOrders.filter(o => o.status === 'Rejected').length}</h4>
-                </div>
-              </Col>
-            </Row>
-            <Table striped bordered hover size="sm">
-              <thead>
-                <tr>
-                  <th>Doc ID</th>
-                  <th>Retry Count</th>
-                  <th>Status</th>
-                  <th>Batch ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {retriedOrders.map(order => (
-                  <tr key={order.id}>
-                    <td>{order.docId}</td>
-                    <td><Badge bg="warning" text="dark">{order.retry}</Badge></td>
-                    <td><Badge bg={order.status === 'Fulfilled' ? 'success' : 'danger'} text="dark">{order.status}</Badge></td>
-                    <td>{order.batchId}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        );
+        // Navigate to Sourcing View filtered by retry > 0
+        setSourcingFilters({ showRetryOnly: true });
+        onNavigate('sourcing');
         break;
       
       default:
-        return;
+        break;
     }
+  };
 
-    setModalData({ title, content });
-    setShowModal(true);
+  // Handle chart clicks with filtering
+  const handleChartClick = (event, chart, chartType) => {
+    const activePoints = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+    
+    if (activePoints.length > 0) {
+      const clickedIndex = activePoints[0].index;
+      
+      switch(chartType) {
+        case 'ageing':
+          // Navigate to Web Order Backlog with Pending Sourcing filter
+          setWebOrderFilters({ statusFilter: 'Pending Sourcing' });
+          onNavigate('web-order');
+          break;
+          
+        case 'source':
+          // Navigate to Web Order Backlog with source filter
+          const sources = ['Store', 'Distributor', 'Pending'];
+          setWebOrderFilters({ sourceFilter: sources[clickedIndex] });
+          onNavigate('web-order');
+          break;
+          
+        case 'sourcingRatio':
+          // Navigate to Sourcing View with type filter
+          const types = ['TO', 'PO', 'Market Purchase'];
+          if (clickedIndex === 0) {
+            setSourcingFilters({ typeFilter: 'TO' });
+          } else if (clickedIndex === 1) {
+            setSourcingFilters({ typeFilter: 'PO' });
+          } else if (clickedIndex === 2) {
+            setSourcingFilters({ marketPurchaseOnly: true });
+          }
+          onNavigate('sourcing');
+          break;
+          
+        case 'sourcingStatus':
+          // Navigate to Sourcing View with status filter
+          const statuses = ['Draft', 'Accepted', 'In Dispatch', 'Fulfilled', 'Rejected'];
+          setSourcingFilters({ statusFilter: statuses[clickedIndex] });
+          onNavigate('sourcing');
+          break;
+          
+        case 'marketPurchase':
+          // Navigate to Sourcing View with market purchase and status filter
+          const mpStatuses = ['Approved', 'In Progress', 'Fulfilled'];
+          setSourcingFilters({ marketPurchaseOnly: true, statusFilter: mpStatuses[clickedIndex] });
+          onNavigate('sourcing');
+          break;
+          
+        default:
+          break;
+      }
+    }
   };
 
   const calculateKPIs = () => {
@@ -222,36 +146,90 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
 
   // Source Chart Data
   const sourceData = {
-    labels: ['Store (TO)', 'Distributor (PO)', 'Pending', 'Other'],
+    labels: ['Store (TO)', 'Distributor (PO)', 'Pending'],
     datasets: [{
       data: [
         webOrders.filter(o => {
           if (o.items) {
-            return o.items.some(item => item.source.includes('Store'));
+            return o.items.some(item => item.source && item.source.includes('Store'));
           }
           return o.source && o.source.includes('Store');
         }).length,
         webOrders.filter(o => {
           if (o.items) {
-            return o.items.some(item => item.source.includes('Distributor'));
+            return o.items.some(item => item.source && item.source.includes('Distributor'));
           }
           return o.source && o.source.includes('Distributor');
         }).length,
         webOrders.filter(o => {
           if (o.items) {
-            return o.items.some(item => item.source.includes('Pending'));
+            return o.items.some(item => item.source && item.source.includes('Pending'));
           }
           return o.source && o.source.includes('Pending');
-        }).length,
-        webOrders.filter(o => {
-          if (o.items) {
-            return o.items.every(item => !item.source.includes('Store') && !item.source.includes('Distributor') && !item.source.includes('Pending'));
-          }
-          return o.source && !o.source.includes('Store') && !o.source.includes('Distributor') && !o.source.includes('Pending');
         }).length
       ],
-      backgroundColor: ['rgba(59, 130, 246, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(107, 114, 128, 0.7)'],
+      backgroundColor: ['rgba(59, 130, 246, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(245, 158, 11, 0.7)'],
       hoverOffset: 4
+    }]
+  };
+
+  // Sourcing Ratio Data
+  const sourcingRatioData = {
+    labels: ['Store (TO)', 'Distributor (PO)', 'Market Purchase'],
+    datasets: [{
+      data: [
+        sourcingOrders.filter(o => o.type === 'TO').length,
+        sourcingOrders.filter(o => o.type === 'PO').length,
+        sourcingOrders.filter(o => o.marketPurchase === true).length
+      ],
+      backgroundColor: [
+        'rgba(59, 130, 246, 0.7)', 
+        'rgba(139, 92, 246, 0.7)', 
+        'rgba(245, 158, 11, 0.7)'
+      ],
+      hoverOffset: 4
+    }]
+  };
+
+  // Sourcing Status Data
+  const sourcingStatusData = {
+    labels: ['Draft', 'Accepted', 'In Dispatch', 'Fulfilled', 'Rejected'],
+    datasets: [{
+      label: 'Sourcing Status',
+      data: [
+        sourcingOrders.filter(o => o.status === 'Draft').length,
+        sourcingOrders.filter(o => o.status === 'Accepted').length,
+        sourcingOrders.filter(o => o.status === 'In Dispatch').length,
+        sourcingOrders.filter(o => o.status === 'Fulfilled').length,
+        sourcingOrders.filter(o => o.status === 'Rejected').length
+      ],
+      backgroundColor: [
+        'rgba(245, 158, 11, 0.7)',
+        'rgba(59, 130, 246, 0.7)',
+        'rgba(139, 92, 246, 0.7)',
+        'rgba(16, 185, 129, 0.7)',
+        'rgba(220, 38, 38, 0.7)'
+      ],
+      borderWidth: 1
+    }]
+  };
+
+  // Market Purchase Data
+  const marketPurchaseData = {
+    labels: ['Approved', 'In Progress', 'Fulfilled'],
+    datasets: [{
+      label: 'Market Purchase Status',
+      data: [
+        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'Approved').length,
+        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'In Progress').length,
+        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'Fulfilled').length
+      ],
+      backgroundColor: [
+        'rgba(59, 130, 246, 0.7)',
+        'rgba(245, 158, 11, 0.7)',
+        'rgba(16, 185, 129, 0.7)'
+      ],
+      borderWidth: 1
     }]
   };
 
@@ -263,6 +241,9 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
     },
     scales: {
       y: { beginAtZero: true, ticks: { precision: 0 } }
+    },
+    onClick: (event, activeElements, chart) => {
+      // This will be overridden per chart
     }
   };
 
@@ -271,6 +252,9 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
     maintainAspectRatio: false,
     plugins: {
       legend: { position: 'bottom', labels: { padding: 20 } }
+    },
+    onClick: (event, activeElements, chart) => {
+      // This will be overridden per chart
     }
   };
 
@@ -278,7 +262,10 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
     <div>
       <h2 className="mb-4 fw-bold">Home Overview</h2>
       
-      {/* Aggregated KPIs */}
+      {/* Web Order KPIs */}
+      <h4 className="mt-3 mb-3 fw-bold text-primary">
+        <i className="bi bi-cart-check me-2"></i>Web Order Metrics
+      </h4>
       <Row className="g-3 mb-4">
         <Col xs={12} sm={6} lg={4} xl={3}>
           <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('total')}>
@@ -315,16 +302,23 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
         <Col xs={12} sm={6} lg={4} xl={3}>
           <Card className="kpi-card h-100">
             <Card.Body>
-              <div className="kpi-title">Avg. Fulfilment Time (W.O.)</div>
+              <div className="kpi-title">Avg. Fulfilment Time</div>
               <div className="kpi-value">{kpis.avgTime} Days</div>
             </Card.Body>
           </Card>
         </Col>
+      </Row>
+
+      {/* Sourcing (TO/PO) KPIs */}
+      <h4 className="mt-4 mb-3 fw-bold text-success">
+        <i className="bi bi-truck me-2"></i>Sourcing (TO/PO) Metrics
+      </h4>
+      <Row className="g-3 mb-4">
         <Col xs={12} sm={6} lg={4} xl={3}>
           <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('sourcing')}>
             <Card.Body>
               <div className="kpi-title">
-                Total Sourcing Docs (TO/PO)
+                Total Sourcing Docs
                 <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
               </div>
               <div className="kpi-value">{kpis.totalSourcing}</div>
@@ -354,39 +348,115 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
         </Col>
       </Row>
       
-      {/* Aggregated Charts */}
-      <Row className="g-3">
+      {/* Web Order Charts */}
+      <h4 className="mt-4 mb-3 fw-bold">Web Order Analytics</h4>
+      <Row className="g-3 mb-4">
         <Col xs={12} lg={6}>
-          <Card className="chart-container h-100">
+          <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>
             <Card.Body>
-              <h5 className="fw-bold mb-3">Pending Order Ageing</h5>
+              <h5 className="fw-bold mb-3">
+                Pending Order Ageing
+                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+              </h5>
               <div className="chart-wrapper" style={{ height: '320px' }}>
-                <Bar data={ageingData} options={chartOptions} />
+                <Bar 
+                  data={ageingData} 
+                  options={{
+                    ...chartOptions,
+                    onClick: (event, activeElements, chart) => handleChartClick(event, chart, 'ageing')
+                  }} 
+                />
               </div>
+              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click bars to filter by age range</p>
             </Card.Body>
           </Card>
         </Col>
         <Col xs={12} lg={6}>
-          <Card className="chart-container h-100">
+          <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>
             <Card.Body>
-              <h5 className="fw-bold mb-3">Source Contribution</h5>
+              <h5 className="fw-bold mb-3">
+                Source Contribution
+                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+              </h5>
               <div className="chart-wrapper d-flex justify-content-center" style={{ height: '320px' }}>
-                <Doughnut data={sourceData} options={doughnutOptions} />
+                <Doughnut 
+                  data={sourceData} 
+                  options={{
+                    ...doughnutOptions,
+                    onClick: (event, activeElements, chart) => handleChartClick(event, chart, 'source')
+                  }} 
+                />
               </div>
+              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click segments to filter by source</p>
             </Card.Body>
           </Card>
         </Col>
       </Row>
-      
-      {/* Modal for detailed insights */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>{modalData.title}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ maxHeight: '500px', overflowY: 'auto' }}>
-          {modalData.content}
-        </Modal.Body>
-      </Modal>
+
+      {/* Sourcing Charts */}
+      <h4 className="mt-4 mb-3 fw-bold">Sourcing Analytics</h4>
+      <Row className="g-3">
+        <Col xs={12} lg={6}>
+          <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>
+            <Card.Body>
+              <h5 className="fw-bold mb-3">
+                Fulfillment Source Distribution
+                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+              </h5>
+              <div className="chart-wrapper d-flex justify-content-center" style={{ height: '320px' }}>
+                <Doughnut 
+                  data={sourcingRatioData} 
+                  options={{
+                    ...doughnutOptions,
+                    onClick: (event, activeElements, chart) => handleChartClick(event, chart, 'sourcingRatio')
+                  }} 
+                />
+              </div>
+              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click segments to filter by type</p>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col xs={12} lg={6}>
+          <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>
+            <Card.Body>
+              <h5 className="fw-bold mb-3">
+                Sourcing Status Distribution
+                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+              </h5>
+              <div className="chart-wrapper" style={{ height: '320px' }}>
+                <Bar 
+                  data={sourcingStatusData} 
+                  options={{
+                    ...chartOptions,
+                    onClick: (event, activeElements, chart) => handleChartClick(event, chart, 'sourcingStatus')
+                  }} 
+                />
+              </div>
+              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click bars to filter by status</p>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col xs={12} lg={6}>
+          <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>
+            <Card.Body>
+              <h5 className="fw-bold mb-3">
+                Market Purchase Status
+                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+              </h5>
+              <div className="chart-wrapper" style={{ height: '320px' }}>
+                <Bar 
+                  data={marketPurchaseData} 
+                  options={{
+                    ...chartOptions,
+                    onClick: (event, activeElements, chart) => handleChartClick(event, chart, 'marketPurchase')
+                  }} 
+                />
+              </div>
+              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click bars to filter market purchases</p>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 };

@@ -1,22 +1,38 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Row, Col, Card, Form, Button, Table, Carousel, Modal, Badge } from 'react-bootstrap';
-import { Bar, Doughnut } from 'react-chartjs-2';
 import { formatDate, dateDiffInDays, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 
-const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, highlightedWebOrder, setHighlightedWebOrder }) => {
+const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, highlightedWebOrder, setHighlightedWebOrder, initialFilters = {}, clearFilters }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [sourceFilter, setSourceFilter] = useState('All');
   const [kpiViewMode, setKpiViewMode] = useState('wrap'); // 'wrap' or 'slider'
   const [carouselIndex, setCarouselIndex] = useState(0);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [showChartModal, setShowChartModal] = useState(false);
   const [chartModalData, setChartModalData] = useState({ title: '', content: null });
   const highlightedRowRef = useRef(null);
+  const tableRef = useRef(null);
+
+  // Apply initial filters when component mounts or filters change
+  useEffect(() => {
+    if (initialFilters.statusFilter || initialFilters.sourceFilter) {
+      if (initialFilters.statusFilter) setStatusFilter(initialFilters.statusFilter);
+      if (initialFilters.sourceFilter) setSourceFilter(initialFilters.sourceFilter);
+      
+      // Clear the filter after applying
+      if (clearFilters) clearFilters();
+      
+      // Scroll to table after a brief delay to allow render
+      setTimeout(() => {
+        if (tableRef.current) {
+          tableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  }, [initialFilters, clearFilters]);
 
   // Effect to handle highlighted web order
   useEffect(() => {
@@ -46,31 +62,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     }
   }, [highlightedWebOrder, setHighlightedWebOrder]);
 
-  // Drag handlers for carousel
-  const handleDragStart = (e) => {
-    setIsDragging(true);
-    setDragStartX(e.type.includes('mouse') ? e.pageX : e.touches[0].pageX);
-  };
 
-  const handleDragEnd = (e) => {
-    if (!isDragging) return;
-    
-    const endX = e.type.includes('mouse') ? e.pageX : e.changedTouches[0].pageX;
-    const diff = dragStartX - endX;
-    
-    // Swipe threshold
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        // Swiped left - next slide
-        setCarouselIndex((prev) => (prev + 1) % 3); // 3 slides for Web Orders
-      } else {
-        // Swiped right - previous slide
-        setCarouselIndex((prev) => (prev - 1 + 3) % 3);
-      }
-    }
-    
-    setIsDragging(false);
-  };
 
   const handleChartClick = (chartType) => {
     let title = '';
@@ -274,72 +266,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     return matchesSearch && matchesStatus && matchesSource && matchesDateRange;
   });
 
-  // Chart Data
-  const pendingOrders = webOrders.filter(o => {
-    const status = o.overallStatus || o.status;
-    return status === 'Pending Sourcing' || status === 'Partially Fulfilled';
-  });
-  const ageingData = {
-    labels: ['0-3 Days', '3-7 Days', '>7 Days'],
-    datasets: [{
-      label: 'Pending Orders',
-      data: [
-        pendingOrders.filter(o => o.age >= 0 && o.age <= 3).length,
-        pendingOrders.filter(o => o.age > 3 && o.age <= 7).length,
-        pendingOrders.filter(o => o.age > 7).length
-      ],
-      backgroundColor: ['rgba(59, 130, 246, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(220, 38, 38, 0.7)'],
-      borderWidth: 1
-    }]
-  };
-
-  const sourceData = {
-    labels: ['Store (TO)', 'Distributor (PO)', 'Pending', 'Other'],
-    datasets: [{
-      data: [
-        webOrders.filter(o => {
-          if (o.items) {
-            return o.items.some(item => item.source && item.source.includes('Store'));
-          }
-          return o.source && o.source.includes('Store');
-        }).length,
-        webOrders.filter(o => {
-          if (o.items) {
-            return o.items.some(item => item.source && item.source.includes('Distributor'));
-          }
-          return o.source && o.source.includes('Distributor');
-        }).length,
-        webOrders.filter(o => {
-          if (o.items) {
-            return o.items.some(item => item.source && item.source.includes('Pending'));
-          }
-          return o.source && o.source.includes('Pending');
-        }).length,
-        webOrders.filter(o => {
-          if (o.items) {
-            return o.items.every(item => item.source && !item.source.includes('Store') && !item.source.includes('Distributor') && !item.source.includes('Pending'));
-          }
-          return o.source && !o.source.includes('Store') && !o.source.includes('Distributor') && !o.source.includes('Pending');
-        }).length
-      ],
-      backgroundColor: ['rgba(59, 130, 246, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(107, 114, 128, 0.7)'],
-      hoverOffset: 4
-    }]
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { position: 'bottom', labels: { padding: 20 } } }
-  };
-
   const handleClearFilters = () => {
     setSearchTerm('');
     setStatusFilter('All');
@@ -349,14 +275,69 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   };
 
   const handleDownload = () => {
+    // Flatten orders to include product line items
+    const exportData = [];
+    
+    filteredOrders.forEach(order => {
+      if (order.products && order.products.length > 0) {
+        // Export each product as a separate row
+        order.products.forEach(item => {
+          exportData.push({
+            id: order.id,
+            customer: order.customer,
+            status: order.status,
+            created: order.created,
+            lastUpdated: order.lastUpdated,
+            age: order.age,
+            retry: order.retry,
+            orderRemarks: order.remarks,
+            product: item.product,
+            sku: item.sku,
+            qty: item.qty,
+            qtyFulfilled: item.qtyFulfilled,
+            qtyPending: item.qtyPending,
+            itemStatus: item.status,
+            source: item.source || '',
+            linkedDocs: item.linkedDocs?.join(', ') || '',
+            itemRemarks: item.remarks || ''
+          });
+        });
+      } else {
+        // Export order without product details (legacy format)
+        exportData.push({
+          id: order.id,
+          customer: order.customer,
+          status: order.status,
+          created: order.created,
+          lastUpdated: order.lastUpdated,
+          age: order.age,
+          retry: order.retry,
+          orderRemarks: order.remarks,
+          product: order.product || '',
+          sku: '',
+          qty: order.qty || 0,
+          qtyFulfilled: order.qtyFulfilled || 0,
+          qtyPending: '',
+          itemStatus: '',
+          source: order.source || '',
+          linkedDocs: order.linkedDoc || '',
+          itemRemarks: ''
+        });
+      }
+    });
+    
     const headers = {
-      id: 'ID', customer: 'Customer', product: 'Product', qty: 'Qty Req.', 
-      qtyFulfilled: 'Qty Fulfilled', status: 'Status', source: 'Source', 
-      linkedDoc: 'Linked Doc', created: 'Created', lastUpdated: 'Last Updated', 
-      age: 'Age', retry: 'Retry', remarks: 'Remarks'
+      id: 'Order ID', customer: 'Customer', status: 'Order Status',
+      created: 'Created', lastUpdated: 'Last Updated', age: 'Age', 
+      retry: 'Retry', orderRemarks: 'Order Remarks',
+      product: 'Product', sku: 'SKU', qty: 'Qty Req.', 
+      qtyFulfilled: 'Qty Fulfilled', qtyPending: 'Qty Pending',
+      itemStatus: 'Item Status', source: 'Source', 
+      linkedDocs: 'Linked Docs', itemRemarks: 'Item Remarks'
     };
-    exportToCSV(webOrders, headers, 'web_orders_export.csv');
-    onShowToast('Web Orders exported as web_orders_export.csv');
+    
+    exportToCSV(exportData, headers, 'web_orders_export.csv');
+    onShowToast(`Exported ${exportData.length} product line items from ${filteredOrders.length} orders to web_orders_export.csv`);
   };
 
   const handleViewDetails = (order) => {
@@ -369,9 +350,9 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       productsHTML = `
         <div class="mb-3">
           <div class="fw-medium text-secondary mb-2">Products (${order.items.length} item${order.items.length > 1 ? 's' : ''})</div>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered mb-0">
-              <thead class="table-light">
+          <div class="table-responsive" style="max-height: 400px; overflow-x: auto; overflow-y: auto;">
+            <table class="table table-sm table-bordered mb-0" style="min-width: 900px;">
+              <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
                 <tr>
                   <th>Product</th>
                   <th>SKU</th>
@@ -381,10 +362,11 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   <th>Status</th>
                   <th>Source</th>
                   <th>Linked Docs</th>
+                  <th style="min-width: 150px;">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                ${order.items.map(item => `
+                ${order.items.map((item, idx) => `
                   <tr>
                     <td>${item.product || '-'}</td>
                     <td>${item.sku || '-'}</td>
@@ -394,6 +376,26 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                     <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status || 'Unknown'}</span></td>
                     <td>${item.source || '-'}</td>
                     <td>${item.linkedDocs?.join(', ') || '-'}</td>
+                    <td>
+                      <select class="form-select form-select-sm" onchange="
+                        if(this.value === 'view') alert('Product: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qty}\\nQty Fulfilled: ${item.qtyFulfilled}\\nStatus: ${item.status}\\nSource: ${item.source || '-'}\\nLinked Docs: ${item.linkedDocs?.join(', ') || 'None'}\\nRemarks: ${item.remarks || 'None'}');
+                        else if(this.value === 'view_docs') alert('Linked Documents:\\n${item.linkedDocs?.join('\\n') || 'No linked documents'}');
+                        else if(this.value === 'process_request') alert('Process sourcing request for ${item.product}');
+                        else if(this.value === 'reject_reassign') alert('Reject/Reassign ${item.product} to alternate source');
+                        else if(this.value === 'manual_closure') alert('Manually close sourcing for ${item.product}');
+                        this.value = 'view';
+                      ">
+                        <option value="view">Actions</option>
+                        ${item.linkedDocs && item.linkedDocs.length > 0 ? 
+                          '<option value="view_docs">View Linked Docs</option>' : ''}
+                        ${item.qtyPending > 0 && (item.status === 'Pending Sourcing' || item.status === 'Pending') ? 
+                          '<option value="process_request">Process Request</option>' : ''}
+                        ${item.qtyPending > 0 && (item.status === 'Pending Sourcing' || item.status === 'Partially Fulfilled') ? 
+                          '<option value="reject_reassign">Reject / Reassign</option>' : ''}
+                        ${item.status === 'Partially Fulfilled' || item.status === 'Exception' ? 
+                          '<option value="manual_closure">Manual Closure</option>' : ''}
+                      </select>
+                    </td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -845,19 +847,11 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
       {/* KPIs - Slider Mode */}
       {kpiViewMode === 'slider' && (
-        <div 
-          className="mb-4"
-          onMouseDown={handleDragStart}
-          onMouseUp={handleDragEnd}
-          onMouseLeave={handleDragEnd}
-          onTouchStart={handleDragStart}
-          onTouchEnd={handleDragEnd}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
-        >
+        <div className="mb-4 kpi-slider-container">
           <Carousel 
-            interval={isDragging ? null : 3000}
-            indicators={false} 
-            controls={false} 
+            interval={3000}
+            indicators={true}
+            controls={false}
             pause="hover"
             activeIndex={carouselIndex}
             onSelect={(selectedIndex) => setCarouselIndex(selectedIndex)}
@@ -935,38 +929,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           </Carousel>
         </div>
       )}
-
-      {/* Charts */}
-      <Row className="g-3 mb-4">
-        <Col xs={12} lg={6}>
-          <Card className="chart-container clickable-card h-100" onClick={() => handleChartClick('ageing')} style={{ cursor: 'pointer' }}>
-            <Card.Body>
-              <h5 className="fw-bold mb-3">
-                Back Order Ageing (Pending)
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </h5>
-              <div className="chart-wrapper">
-                <Bar data={ageingData} options={chartOptions} />
-              </div>
-              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for detailed breakdown</p>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} lg={6}>
-          <Card className="chart-container clickable-card h-100" onClick={() => handleChartClick('source')} style={{ cursor: 'pointer' }}>
-            <Card.Body>
-              <h5 className="fw-bold mb-3">
-                Source Contribution (All Orders)
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </h5>
-              <div className="chart-wrapper d-flex justify-content-center">
-                <Doughnut data={sourceData} options={doughnutOptions} />
-              </div>
-              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for detailed analysis</p>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
 
       {/* Table */}
       <Card>
@@ -1047,8 +1009,8 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           </div>
 
           {/* Table */}
-          <div className="table-responsive">
-            <Table striped hover className="mb-0">
+          <div className="table-responsive" ref={tableRef} style={{ minWidth: '900px' }}>
+            <Table striped hover className="mb-0" style={{ width: '100%', tableLayout: 'fixed' }}>
               <thead className="table-light">
                 <tr>
                   <th>Web Order ID</th>
@@ -1069,7 +1031,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map(order => {
+                  filteredOrders.map((order, idx) => {
                     // Use new data structure if available, fallback to old structure
                     const displayData = order.items ? {
                       product: order.items[0]?.product || '-',
@@ -1127,6 +1089,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                             orderId={order.id}
                             actions={getOrderActions(order)}
                             onActionSelect={handleActionSelect}
+                            dropDirection={'down'}
                           />
                         </td>
                       </tr>

@@ -1,17 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Row, Col, Card, Form, Button, Table, Carousel, Modal, Badge } from 'react-bootstrap';
-import { Bar, Doughnut } from 'react-chartjs-2';
 import { dateDiffInHours, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 
-const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenModal, onNavigate, setHighlightedWebOrder }) => {
+const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenModal, onNavigate, setHighlightedWebOrder, initialFilters = {}, clearFilters }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [kpiViewMode, setKpiViewMode] = useState('wrap'); // 'wrap' or 'slider'
   const [carouselIndex, setCarouselIndex] = useState(0);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
@@ -19,6 +16,29 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [sourceTypeFilter, setSourceTypeFilter] = useState('All');
   const [showChartModal, setShowChartModal] = useState(false);
   const [chartModalData, setChartModalData] = useState({ title: '', content: null });
+  const [showRetryOnly, setShowRetryOnly] = useState(false);
+  const [showMarketPurchaseOnly, setShowMarketPurchaseOnly] = useState(false);
+  const tableRef = useRef(null);
+
+  // Apply initial filters when component mounts or filters change
+  useEffect(() => {
+    if (initialFilters.showRetryOnly || initialFilters.typeFilter || initialFilters.statusFilter || initialFilters.marketPurchaseOnly) {
+      if (initialFilters.showRetryOnly) setShowRetryOnly(true);
+      if (initialFilters.typeFilter) setTypeFilter(initialFilters.typeFilter);
+      if (initialFilters.statusFilter) setStatusFilter(initialFilters.statusFilter);
+      if (initialFilters.marketPurchaseOnly) setShowMarketPurchaseOnly(true);
+      
+      // Clear the filter after applying
+      if (clearFilters) clearFilters();
+      
+      // Scroll to table after a brief delay to allow render
+      setTimeout(() => {
+        if (tableRef.current) {
+          tableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  }, [initialFilters, clearFilters]);
 
   // Define handleViewWebOrder with useCallback so it's stable for useEffect
   const handleViewWebOrder = useCallback((webOrderId) => {
@@ -36,31 +56,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     };
   }, [handleViewWebOrder]);
 
-  // Drag handlers for carousel
-  const handleDragStart = (e) => {
-    setIsDragging(true);
-    setDragStartX(e.type.includes('mouse') ? e.pageX : e.touches[0].pageX);
-  };
 
-  const handleDragEnd = (e) => {
-    if (!isDragging) return;
-    
-    const endX = e.type.includes('mouse') ? e.pageX : e.changedTouches[0].pageX;
-    const diff = dragStartX - endX;
-    
-    // Swipe threshold
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        // Swiped left - next slide
-        setCarouselIndex((prev) => (prev + 1) % 4); // 4 slides for TO/PO
-      } else {
-        // Swiped right - previous slide
-        setCarouselIndex((prev) => (prev - 1 + 4) % 4);
-      }
-    }
-    
-    setIsDragging(false);
-  };
 
   const handleChartClick = (chartType) => {
     let title = '';
@@ -309,82 +305,14 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       matchesDateRange = matchesDateRange && orderDate <= endDate;
     }
     
-    return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesBatch && matchesSku && matchesSourceType;
+    // Retry filter
+    const matchesRetry = !showRetryOnly || order.retry > 0;
+    
+    // Market Purchase filter
+    const matchesMarketPurchase = !showMarketPurchaseOnly || order.marketPurchase === true;
+    
+    return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesBatch && matchesSku && matchesSourceType && matchesRetry && matchesMarketPurchase;
   });
-
-  // Chart Data
-  const ratioData = {
-    labels: ['Store (TO)', 'Distributor (PO)', 'Market Purchase'],
-    datasets: [{
-      data: [
-        sourcingOrders.filter(o => o.type === 'TO').length,
-        sourcingOrders.filter(o => o.type === 'PO').length,
-        sourcingOrders.filter(o => o.marketPurchase === true).length
-      ],
-      backgroundColor: [
-        'rgba(59, 130, 246, 0.7)', 
-        'rgba(139, 92, 246, 0.7)', 
-        'rgba(245, 158, 11, 0.7)'
-      ],
-      hoverOffset: 4
-    }]
-  };
-
-  const statusData = {
-    labels: ['Draft', 'Accepted', 'In Dispatch', 'Fulfilled', 'Rejected'],
-    datasets: [{
-      label: 'Sourcing Status',
-      data: [
-        sourcingOrders.filter(o => o.status === 'Draft').length,
-        sourcingOrders.filter(o => o.status === 'Accepted').length,
-        sourcingOrders.filter(o => o.status === 'In Dispatch').length,
-        sourcingOrders.filter(o => o.status === 'Fulfilled').length,
-        sourcingOrders.filter(o => o.status === 'Rejected').length
-      ],
-      backgroundColor: [
-        'rgba(245, 158, 11, 0.7)',
-        'rgba(59, 130, 246, 0.7)',
-        'rgba(139, 92, 246, 0.7)',
-        'rgba(16, 185, 129, 0.7)',
-        'rgba(220, 38, 38, 0.7)'
-      ],
-      borderWidth: 1
-    }]
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { position: 'bottom', labels: { padding: 20 } } }
-  };
-
-  // Market Purchase Trend Data
-  const marketPurchaseTrendData = {
-    labels: ['Approved', 'In Progress', 'Fulfilled', 'Rejected'],
-    datasets: [{
-      label: 'Market Purchase Status',
-      data: [
-        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'Approved').length,
-        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'In Progress').length,
-        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'Fulfilled').length,
-        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'Rejected').length
-      ],
-      backgroundColor: [
-        'rgba(59, 130, 246, 0.7)',
-        'rgba(245, 158, 11, 0.7)',
-        'rgba(16, 185, 129, 0.7)',
-        'rgba(220, 38, 38, 0.7)'
-      ],
-      borderWidth: 1
-    }]
-  };
 
   const handleClearFilters = () => {
     setSearchTerm('');
@@ -395,18 +323,82 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     setBatchFilter('');
     setSkuFilter('');
     setSourceTypeFilter('All');
+    setShowRetryOnly(false);
+    setShowMarketPurchaseOnly(false);
   };
 
   const handleDownload = () => {
+    // Flatten orders to include product line items
+    const exportData = [];
+    
+    filteredOrders.forEach(order => {
+      if (order.items && order.items.length > 0) {
+        // Export each product line item as a separate row
+        order.items.forEach(item => {
+          exportData.push({
+            id: order.id,
+            type: order.type,
+            docId: order.docId,
+            webOrder: order.webOrder,
+            batchId: order.batchId,
+            source: order.source,
+            destination: order.destination,
+            status: order.status,
+            lineId: item.lineId,
+            product: item.product,
+            sku: item.sku,
+            qtyReq: item.qtyReq,
+            qtyFulfilled: item.qtyFulfilled,
+            qtyPending: item.qtyReq - item.qtyFulfilled,
+            itemStatus: item.status,
+            itemRemarks: item.remarks || '',
+            retry: order.retry,
+            created: order.created,
+            createdBy: order.createdBy,
+            lastActionedBy: order.lastActionedBy,
+            remarks: order.remarks
+          });
+        });
+      } else {
+        // Export order without line items
+        exportData.push({
+          id: order.id,
+          type: order.type,
+          docId: order.docId,
+          webOrder: order.webOrder,
+          batchId: order.batchId,
+          source: order.source,
+          destination: order.destination,
+          status: order.status,
+          lineId: '',
+          product: '',
+          sku: '',
+          qtyReq: order.qtyReq,
+          qtyFulfilled: order.qtyFulfilled,
+          qtyPending: order.qtyReq - order.qtyFulfilled,
+          itemStatus: '',
+          itemRemarks: '',
+          retry: order.retry,
+          created: order.created,
+          createdBy: order.createdBy,
+          lastActionedBy: order.lastActionedBy,
+          remarks: order.remarks
+        });
+      }
+    });
+    
     const headers = {
       id: 'Draft ID', type: 'Type', docId: 'TO/PO ID', webOrder: 'Web Order', 
       batchId: 'Batch ID', source: 'Source', destination: 'Destination', 
-      status: 'Status', qtyReq: 'Qty Req.', qtyFulfilled: 'Qty Fulfilled', 
+      status: 'Order Status', lineId: 'Line ID', product: 'Product', sku: 'SKU',
+      qtyReq: 'Qty Req.', qtyFulfilled: 'Qty Fulfilled', qtyPending: 'Qty Pending',
+      itemStatus: 'Item Status', itemRemarks: 'Item Remarks',
       retry: 'Retry', created: 'Created', createdBy: 'Created By', 
-      lastActionedBy: 'Last Actioned', remarks: 'Remarks'
+      lastActionedBy: 'Last Actioned', remarks: 'Order Remarks'
     };
-    exportToCSV(sourcingOrders, headers, 'sourcing_export.csv');
-    onShowToast('Sourcing data exported as sourcing_export.csv');
+    
+    exportToCSV(exportData, headers, 'sourcing_export.csv');
+    onShowToast(`Exported ${exportData.length} product line items from ${filteredOrders.length} orders to sourcing_export.csv`);
   };
 
   const handleViewDetails = (order) => {
@@ -416,9 +408,9 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     const productsTableHTML = order.items ? `
       <div class="col-12 mt-4"><h5 class="text-primary fw-bold mb-3">Product Line Items</h5></div>
       <div class="col-12">
-        <div class="table-responsive">
-          <table class="table table-sm table-bordered">
-            <thead class="table-light">
+        <div class="table-responsive" style="max-height: 400px; overflow-x: auto; overflow-y: auto;">
+          <table class="table table-sm table-bordered" style="min-width: 1000px;">
+            <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
               <tr>
                 <th>Line ID</th>
                 <th>Product</th>
@@ -428,6 +420,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <th>Qty Pending</th>
                 <th>Status</th>
                 <th>Remarks</th>
+                <th style="min-width: 180px;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -443,6 +436,21 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                     <td class="text-end ${pending > 0 ? 'text-warning fw-medium' : 'text-muted'}">${pending}</td>
                     <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status}</span></td>
                     <td class="small">${item.remarks || '-'}</td>
+                    <td>
+                      <select class="form-select form-select-sm" onchange="
+                        if(this.value === 'view') alert('Line: ${item.lineId}\\nProduct: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qtyReq}\\nQty Fulfilled: ${item.qtyFulfilled}\\nStatus: ${item.status}\\nRemarks: ${item.remarks || 'None'}');
+                        else if(this.value === 'view_web_order') alert('Navigate to Web Order linked to this item');
+                        else if(this.value === 'manual_recheck') alert('Manual recheck for ${item.product}');
+                        else if(this.value === 'add_remarks') alert('Add remarks for ${item.product}');
+                        this.value = 'view';
+                      ">
+                        <option value="view">View Details</option>
+                        <option value="view_web_order">View Web Order</option>
+                        ${pending > 0 && (item.status === 'Draft' || item.status === 'Accepted') ? 
+                          '<option value="manual_recheck">Manual Recheck</option>' : ''}
+                        <option value="add_remarks">Add Remarks</option>
+                      </select>
+                    </td>
                   </tr>
                 `;
               }).join('')}
@@ -729,19 +737,11 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
       {/* KPIs - Slider Mode */}
       {kpiViewMode === 'slider' && (
-        <div 
-          className="mb-4"
-          onMouseDown={handleDragStart}
-          onMouseUp={handleDragEnd}
-          onMouseLeave={handleDragEnd}
-          onTouchStart={handleDragStart}
-          onTouchEnd={handleDragEnd}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
-        >
+        <div className="mb-4 kpi-slider-container">
           <Carousel 
-            interval={isDragging ? null : 3000}
-            indicators={false} 
-            controls={false} 
+            interval={3000}
+            indicators={true}
+            controls={false}
             pause="hover"
             activeIndex={carouselIndex}
             onSelect={(selectedIndex) => setCarouselIndex(selectedIndex)}
@@ -849,52 +849,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         </div>
       )}
 
-      {/* Charts */}
-      <Row className="g-3 mb-4">
-        <Col xs={12} lg={4}>
-          <Card className="chart-container clickable-card" onClick={() => handleChartClick('source')} style={{ cursor: 'pointer' }}>
-            <Card.Body>
-              <h5 className="fw-bold mb-3">
-                Fulfilment Source Distribution
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </h5>
-              <div className="chart-wrapper d-flex justify-content-center">
-                <Doughnut data={ratioData} options={doughnutOptions} />
-              </div>
-              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for details</p>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} lg={4}>
-          <Card className="chart-container clickable-card" onClick={() => handleChartClick('status')} style={{ cursor: 'pointer' }}>
-            <Card.Body>
-              <h5 className="fw-bold mb-3">
-                Sourcing Status Breakdown
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </h5>
-              <div className="chart-wrapper">
-                <Bar data={statusData} options={chartOptions} />
-              </div>
-              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for analysis</p>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} lg={4}>
-          <Card className="chart-container clickable-card" onClick={() => handleChartClick('market')} style={{ cursor: 'pointer' }}>
-            <Card.Body>
-              <h5 className="fw-bold mb-3">
-                Market Purchase Dependency Trend
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </h5>
-              <div className="chart-wrapper">
-                <Bar data={marketPurchaseTrendData} options={chartOptions} />
-              </div>
-              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for complete overview</p>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
       {/* Table */}
       <Card>
         <Card.Body>
@@ -987,6 +941,26 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <option value="Expired">Expired</option>
               </Form.Select>
             </Col>
+            <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+              <Button
+                variant={showRetryOnly ? "primary" : "outline-secondary"}
+                onClick={() => setShowRetryOnly(!showRetryOnly)}
+                className="w-100"
+                size="sm"
+              >
+                {showRetryOnly ? "✓ " : ""}Re-try Orders
+              </Button>
+            </Col>
+            <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+              <Button
+                variant={showMarketPurchaseOnly ? "primary" : "outline-secondary"}
+                onClick={() => setShowMarketPurchaseOnly(!showMarketPurchaseOnly)}
+                className="w-100"
+                size="sm"
+              >
+                {showMarketPurchaseOnly ? "✓ " : ""}Market Purchase
+              </Button>
+            </Col>
             <Col xs={6} sm={6} md={3} lg={2} xl={1} className="d-flex align-items-end">
               <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
                 Clear
@@ -1006,8 +980,8 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           </div>
 
           {/* Table */}
-          <div className="table-responsive" style={{ overflowX: 'auto' }}>
-            <Table striped hover className="mb-0" style={{ minWidth: '900px' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto', minWidth: '1000px' }} ref={tableRef}>
+            <Table striped hover className="mb-0" style={{ width: '100%', tableLayout: 'fixed' }}>
               <thead className="table-light">
                 <tr>
                   <th>Draft ID</th>
@@ -1025,12 +999,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="10" className="text-center text-secondary py-5">
-                      No sourcing documents found matching your criteria.
+                    <td colSpan="16" className="text-center text-secondary py-5">
+                      No orders found matching your criteria.
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map(order => {
+                  filteredOrders.map((order, idx) => {
                     const qtyPending = order.qtyReq - order.qtyFulfilled;
                     return (
                       <tr key={order.id}>
@@ -1081,6 +1055,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                             orderId={order.id}
                             actions={getOrderActions(order)}
                             onActionSelect={handleActionSelect}
+                            dropDirection={'down'}
                           />
                         </td>
                       </tr>

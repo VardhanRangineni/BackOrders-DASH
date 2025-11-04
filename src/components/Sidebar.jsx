@@ -31,15 +31,6 @@ const Sidebar = ({ mode, activePage, onNavigate, onToggle }) => {
           <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v1h-2V4H7v1H5V4zM5 7h10v9a2 2 0 01-2 2H7a2 2 0 01-2-2V7zm2 1h1v8H7V8zm4 0h1v8h-1V8z"/>
         </svg>
       )
-    },
-    {
-      id: 'reports',
-      label: 'Report Scheduler',
-      icon: (
-        <svg style={{ width: '20px', height: '20px', minWidth: '20px' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"/>
-        </svg>
-      )
     }
   ];
 
@@ -87,7 +78,7 @@ const Sidebar = ({ mode, activePage, onNavigate, onToggle }) => {
           </div>
         )}
 
-        {navItems.slice(1, 3).map((item) => (
+  {navItems.slice(1).map((item) => (
           <button
             key={item.id}
             onClick={(e) => { e.preventDefault(); onNavigate(item.id); }}
@@ -101,24 +92,6 @@ const Sidebar = ({ mode, activePage, onNavigate, onToggle }) => {
           </button>
         ))}
 
-        {!isCollapsed && (
-          <div className="pt-2 pb-2">
-            <p className="px-3 text-uppercase small text-secondary mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-              Settings
-            </p>
-          </div>
-        )}
-
-        <button
-          onClick={(e) => { e.preventDefault(); onNavigate('reports'); }}
-          className={`sidebar-link d-flex align-items-center rounded mb-2 ${
-            activePage === 'reports' ? 'active' : ''
-          }`}
-          title={navItems[3].label}
-        >
-          {navItems[3].icon}
-          {!isCollapsed && <span className="ms-2">{navItems[3].label}</span>}
-        </button>
       </Nav>
     </aside>
   );
