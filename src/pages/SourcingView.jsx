@@ -58,171 +58,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
 
 
-  const handleChartClick = (chartType) => {
-    let title = '';
-    let content = null;
-
-    const filtered = filteredOrders;
-
-    if (chartType === 'source') {
-      const toOrders = filtered.filter(o => o.type === 'TO');
-      const poOrders = filtered.filter(o => o.type === 'PO');
-      
-      title = 'Fulfilment Source Distribution - Detailed View';
-      content = (
-        <div>
-          <Row className="mb-3">
-            <Col xs={12} sm={6} md={6}>
-              <div className="p-3 bg-primary bg-opacity-10 rounded">
-                <h6 className="text-primary">Transfer Orders (TO)</h6>
-                <h4>{toOrders.length} Orders</h4>
-                <small>Fulfilled: {toOrders.filter(o => o.status === 'Fulfilled').length}</small>
-              </div>
-            </Col>
-            <Col xs={12} sm={6} md={6}>
-              <div className="p-3 bg-info bg-opacity-10 rounded">
-                <h6 className="text-info">Purchase Orders (PO)</h6>
-                <h4>{poOrders.length} Orders</h4>
-                <small>Fulfilled: {poOrders.filter(o => o.status === 'Fulfilled').length}</small>
-              </div>
-            </Col>
-          </Row>
-          <Table striped bordered hover size="sm">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Doc ID</th>
-                <th>Web Order</th>
-                <th>Status</th>
-                <th>Source Location</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.slice(0, 15).map(order => (
-                <tr key={order.id}>
-                  <td><Badge bg={order.type === 'TO' ? 'primary' : 'info'} text="dark">{order.type}</Badge></td>
-                  <td>{order.docId}</td>
-                  <td>{order.webOrder}</td>
-                  <td><Badge bg={getStatusBadgeClass(order.status)} text="dark">{order.status}</Badge></td>
-                  <td>{order.source}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
-      );
-    } else if (chartType === 'status') {
-      const fulfilled = filtered.filter(o => o.status === 'Fulfilled');
-      const pending = filtered.filter(o => o.status === 'Draft' || o.status === 'Accepted');
-      const rejected = filtered.filter(o => o.status === 'Rejected');
-      
-      title = 'Status Breakdown - Detailed Analysis';
-      content = (
-        <div>
-          <Row className="mb-3">
-            <Col xs={12} sm={6} md={4}>
-              <div className="p-3 bg-success bg-opacity-10 rounded">
-                <h6 className="text-success">Fulfilled</h6>
-                <h4>{fulfilled.length}</h4>
-              </div>
-            </Col>
-            <Col xs={12} sm={6} md={4}>
-              <div className="p-3 bg-warning bg-opacity-10 rounded">
-                <h6 className="text-warning">Pending</h6>
-                <h4>{pending.length}</h4>
-              </div>
-            </Col>
-            <Col xs={12} sm={12} md={4}>
-              <div className="p-3 bg-danger bg-opacity-10 rounded">
-                <h6 className="text-danger">Rejected</h6>
-                <h4>{rejected.length}</h4>
-              </div>
-            </Col>
-          </Row>
-          <Table striped bordered hover size="sm">
-            <thead>
-              <tr>
-                <th>Doc ID</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Batch ID</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...rejected, ...pending, ...fulfilled].slice(0, 15).map(order => (
-                <tr key={order.id}>
-                  <td>{order.docId}</td>
-                  <td><Badge bg={order.type === 'TO' ? 'primary' : 'info'} text="dark">{order.type}</Badge></td>
-                  <td><Badge bg={getStatusBadgeClass(order.status)} text="dark">{order.status}</Badge></td>
-                  <td>{order.batchId}</td>
-                  <td>{order.created}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
-      );
-    } else if (chartType === 'market') {
-      const marketPurchaseOrders = filtered.filter(o => o.marketPurchase);
-      const mpFulfilled = marketPurchaseOrders.filter(o => o.status === 'Fulfilled');
-      const mpPending = marketPurchaseOrders.filter(o => o.status !== 'Fulfilled' && o.status !== 'Rejected');
-      
-      title = 'Market Purchase Dependency - Complete Overview';
-      content = (
-        <div>
-          <Row className="mb-3">
-            <Col xs={12} sm={6} md={4}>
-              <div className="p-3 bg-warning bg-opacity-10 rounded">
-                <h6 className="text-warning">Total Market Purchases</h6>
-                <h4>{marketPurchaseOrders.length}</h4>
-              </div>
-            </Col>
-            <Col xs={12} sm={6} md={4}>
-              <div className="p-3 bg-success bg-opacity-10 rounded">
-                <h6 className="text-success">Fulfilled</h6>
-                <h4>{mpFulfilled.length}</h4>
-              </div>
-            </Col>
-            <Col xs={12} sm={12} md={4}>
-              <div className="p-3 bg-info bg-opacity-10 rounded">
-                <h6 className="text-info">Pending</h6>
-                <h4>{mpPending.length}</h4>
-              </div>
-            </Col>
-          </Row>
-          <Table striped bordered hover size="sm">
-            <thead>
-              <tr>
-                <th>Doc ID</th>
-                <th>Web Order</th>
-                <th>Status</th>
-                <th>Vendor</th>
-                <th>Estimated Cost</th>
-                <th>Actual Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {marketPurchaseOrders.map(order => (
-                <tr key={order.id}>
-                  <td>{order.docId}</td>
-                  <td>{order.webOrder}</td>
-                  <td><Badge bg={getStatusBadgeClass(order.status)} text="dark">{order.status}</Badge></td>
-                  <td>{order.vendor || '-'}</td>
-                  <td>{order.estimatedCost || '-'}</td>
-                  <td>{order.actualCost || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
-      );
-    }
-
-    setChartModalData({ title, content });
-    setShowChartModal(true);
-  };
-
   const calculateKPIs = () => {
     const fulfilled = sourcingOrders.filter(o => o.status === 'Fulfilled');
     const fulfilledTOs = fulfilled.filter(o => o.type === 'TO');
@@ -243,7 +78,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     const marketPurchaseCount = marketPurchaseOrders.length;
     const marketPurchasePercentage = sourcingOrders.length > 0 ? ((marketPurchaseCount / sourcingOrders.length) * 100).toFixed(1) : 0;
     const marketPurchaseFulfilled = marketPurchaseOrders.filter(o => o.status === 'Fulfilled').length;
-    const marketPurchasePending = marketPurchaseOrders.filter(o => o.status === 'Approved' || o.status === 'In Progress').length;
+    const marketPurchasePending = marketPurchaseOrders.filter(o => o.status !== 'Fulfilled' && o.status !== 'Rejected').length;
 
     return {
       total: sourcingOrders.length,
@@ -831,7 +666,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                     </Card.Body>
                   </Card>
                 </Col>
-              </Row>
             </Carousel.Item>
             <Carousel.Item>
               <Row className="g-3 px-2 pb-4 pt-2">

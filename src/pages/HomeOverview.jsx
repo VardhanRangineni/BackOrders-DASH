@@ -62,7 +62,6 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
           
         case 'sourcingRatio':
           // Navigate to Sourcing View with type filter
-          const types = ['TO', 'PO', 'Market Purchase'];
           if (clickedIndex === 0) {
             setSourcingFilters({ typeFilter: 'TO' });
           } else if (clickedIndex === 1) {
