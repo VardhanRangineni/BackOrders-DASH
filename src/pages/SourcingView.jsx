@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Row, Col, Card, Form, Button, Table, Carousel, Modal, Badge } from 'react-bootstrap';
+import { Row, Col, Card, Form, Button, Table, Carousel, Modal } from 'react-bootstrap';
 import { dateDiffInHours, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 

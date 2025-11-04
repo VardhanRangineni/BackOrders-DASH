@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { Row, Col, Card, Form, Button, Table, Carousel, Modal, Badge } from 'react-bootstrap';
+import { Row, Col, Card, Form, Button, Table, Carousel, Modal } from 'react-bootstrap';
 import { formatDate, dateDiffInDays, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 
@@ -445,6 +445,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   <input class="form-check-input me-2" type="radio" name="processOption" value="create_po">
                   <div>
                     <div class="fw-medium">Create Purchase Order (PO)</div>
+                   
                     <small class="text-muted">Source from distributor/vendor</small>
                   </div>
                 </label>
