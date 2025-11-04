@@ -360,7 +360,7 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
           <Card className="chart-container h-100">
             <Card.Body>
               <h5 className="fw-bold mb-3">Pending Order Ageing</h5>
-              <div style={{ height: '320px' }}>
+              <div className="chart-wrapper" style={{ height: '320px' }}>
                 <Bar data={ageingData} options={chartOptions} />
               </div>
             </Card.Body>
@@ -370,7 +370,7 @@ const HomeOverview = ({ webOrders, sourcingOrders }) => {
           <Card className="chart-container h-100">
             <Card.Body>
               <h5 className="fw-bold mb-3">Source Contribution</h5>
-              <div style={{ height: '320px' }} className="d-flex justify-content-center">
+              <div className="chart-wrapper d-flex justify-content-center" style={{ height: '320px' }}>
                 <Doughnut data={sourceData} options={doughnutOptions} />
               </div>
             </Card.Body>

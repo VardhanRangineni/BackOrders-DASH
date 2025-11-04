@@ -945,7 +945,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 Back Order Ageing (Pending)
                 <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
               </h5>
-              <div style={{ height: '256px' }}>
+              <div className="chart-wrapper">
                 <Bar data={ageingData} options={chartOptions} />
               </div>
               <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for detailed breakdown</p>
@@ -959,7 +959,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 Source Contribution (All Orders)
                 <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
               </h5>
-              <div style={{ height: '256px' }} className="d-flex justify-content-center">
+              <div className="chart-wrapper d-flex justify-content-center">
                 <Doughnut data={sourceData} options={doughnutOptions} />
               </div>
               <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for detailed analysis</p>

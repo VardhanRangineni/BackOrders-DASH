@@ -858,7 +858,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 Fulfilment Source Distribution
                 <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
               </h5>
-              <div style={{ height: '256px' }} className="d-flex justify-content-center">
+              <div className="chart-wrapper d-flex justify-content-center">
                 <Doughnut data={ratioData} options={doughnutOptions} />
               </div>
               <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for details</p>
@@ -872,7 +872,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 Sourcing Status Breakdown
                 <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
               </h5>
-              <div style={{ height: '256px' }}>
+              <div className="chart-wrapper">
                 <Bar data={statusData} options={chartOptions} />
               </div>
               <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for analysis</p>
@@ -886,7 +886,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 Market Purchase Dependency Trend
                 <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
               </h5>
-              <div style={{ height: '256px' }}>
+              <div className="chart-wrapper">
                 <Bar data={marketPurchaseTrendData} options={chartOptions} />
               </div>
               <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click for complete overview</p>
