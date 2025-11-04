@@ -273,16 +273,17 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                     <td class="small">${item.remarks || '-'}</td>
                     <td>
                       <select class="form-select form-select-sm" onchange="
-                        if(this.value === 'view') alert('Line: ${item.lineId}\\nProduct: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qtyReq}\\nQty Fulfilled: ${item.qtyFulfilled}\\nStatus: ${item.status}\\nRemarks: ${item.remarks || 'None'}');
-                        else if(this.value === 'view_web_order') alert('Navigate to Web Order linked to this item');
-                        else if(this.value === 'manual_recheck') alert('Manual recheck for ${item.product}');
-                        else if(this.value === 'add_remarks') alert('Add remarks for ${item.product}');
-                        this.value = 'view';
+                        if(this.value === 'view_details') alert('Line Item Details:\\n\\nLine ID: ${item.lineId}\\nProduct: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qtyReq}\\nQty Fulfilled: ${item.qtyFulfilled}\\nQty Pending: ${pending}\\nStatus: ${item.status}\\nRemarks: ${item.remarks || 'None'}');
+                        else if(this.value === 'view_linked_web_order') alert('Viewing linked Web Order for Line ${item.lineId}\\n\\nThis will show the original customer web order details.');
+                        else if(this.value === 'trigger_recheck') alert('Triggering manual recheck for ${item.product}\\n\\nSystem will re-evaluate store/distributor availability.');
+                        else if(this.value === 'add_remarks') alert('Adding remarks for Line ${item.lineId}');
+                        this.value = '';
                       ">
-                        <option value="view">View Details</option>
-                        <option value="view_web_order">View Web Order</option>
-                        ${pending > 0 && (item.status === 'Draft' || item.status === 'Accepted') ? 
-                          '<option value="manual_recheck">Manual Recheck</option>' : ''}
+                        <option value="" selected hidden>Action</option>
+                        <option value="view_details">View Details</option>
+                        <option value="view_linked_web_order">View Linked Web Order</option>
+                        ${pending > 0 && (item.status === 'Draft' || item.status === 'Rejected') ? 
+                          '<option value="trigger_recheck">Trigger Recheck</option>' : ''}
                         <option value="add_remarks">Add Remarks</option>
                       </select>
                     </td>
@@ -403,6 +404,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     `, 'modal-md');
   };
 
+  // Get available actions based on TO/PO status - Sourcing Level
   const getOrderActions = (order) => {
     const status = order.status;
     const actions = [];
@@ -410,20 +412,25 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     // Always show View Details first
     actions.push({ label: 'View Details', value: 'view' });
     
-    // View linked web order
-    actions.push({ label: 'View Web Order', value: 'view_web_order' });
+    // View linked web order summary
+    actions.push({ label: 'View Linked Web Order', value: 'view_web_order' });
     
-    // View batch log for traceability
+    // View scheduler batch log for retry audit and traceability
     actions.push({ label: 'View Batch Log', value: 'view_batch_log' });
     
-    // Status-specific actions
+    // Status-specific actions based on TO/PO-Level Tracking Dashboard requirements
     if (status === 'Draft' || status === 'Rejected') {
-      // Draft or rejected TO/PO can be rechecked
-      actions.push({ label: 'Manual Recheck', value: 'manual_recheck' });
+      // Draft or Rejected TO/PO can be manually rechecked (admin users)
+      actions.push({ label: 'Trigger Manual Recheck', value: 'manual_recheck' });
     }
     
-    // Add remarks is available for all statuses for audit trail
-    actions.push({ label: 'Add Remarks', value: 'add_remarks' });
+    if (status === 'Accepted' || status === 'Partial') {
+      // Accepted/Partial orders in progress - no additional actions needed
+      // Only view-related options available (already added above)
+    }
+    
+    // Add remarks for exception records - available for all statuses for audit trail
+    actions.push({ label: 'Add Remarks / Notes', value: 'add_remarks' });
     
     return actions;
   };

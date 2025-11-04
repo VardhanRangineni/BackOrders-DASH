@@ -37,8 +37,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   // Effect to handle highlighted web order
   useEffect(() => {
     if (highlightedWebOrder) {
-      console.log('Highlighting web order:', highlightedWebOrder);
-      
       // Clear any filters to ensure the row is visible
       setSearchTerm('');
       setStatusFilter('All');
@@ -241,22 +239,23 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                     <td>${item.linkedDocs?.join(', ') || '-'}</td>
                     <td>
                       <select class="form-select form-select-sm" onchange="
-                        if(this.value === 'view') alert('Product: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qty}\\nQty Fulfilled: ${item.qtyFulfilled}\\nStatus: ${item.status}\\nSource: ${item.source || '-'}\\nLinked Docs: ${item.linkedDocs?.join(', ') || 'None'}\\nRemarks: ${item.remarks || 'None'}');
-                        else if(this.value === 'view_docs') alert('Linked Documents:\\n${item.linkedDocs?.join('\\n') || 'No linked documents'}');
-                        else if(this.value === 'process_request') alert('Process sourcing request for ${item.product}');
-                        else if(this.value === 'reject_reassign') alert('Reject/Reassign ${item.product} to alternate source');
-                        else if(this.value === 'manual_closure') alert('Manually close sourcing for ${item.product}');
-                        this.value = 'view';
+                        if(this.value === 'view_details') alert('Product Details:\\n\\nProduct: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qty}\\nQty Fulfilled: ${item.qtyFulfilled}\\nQty Pending: ${item.qtyPending}\\nStatus: ${item.status}\\nSource: ${item.source || 'Not assigned'}\\nLinked Docs: ${item.linkedDocs?.join(', ') || 'None'}\\nRemarks: ${item.remarks || 'None'}');
+                        else if(this.value === 'view_linked_to_po') alert('Viewing linked TO/PO documents:\\n${item.linkedDocs?.join('\\n') || 'No linked documents found'}');
+                        else if(this.value === 'create_manual_to') alert('Creating manual Transfer Order for ${item.product}\\nThis will reserve stock from a selected store.');
+                        else if(this.value === 'mark_distributor_po') alert('Marking ${item.product} for Distributor PO\\nSystem will auto-generate PO from configured distributor.');
+                        else if(this.value === 'mark_unavailable') alert('Marking ${item.product} as Unavailable\\nThis will be logged for market purchase attempt.');
+                        this.value = '';
                       ">
-                        <option value="view">Actions</option>
+                        <option value="" selected hidden>Action</option>
+                        <option value="view_details">View Details</option>
                         ${item.linkedDocs && item.linkedDocs.length > 0 ? 
-                          '<option value="view_docs">View Linked Docs</option>' : ''}
+                          '<option value="view_linked_to_po">View Linked TO/PO</option>' : ''}
                         ${item.qtyPending > 0 && (item.status === 'Pending Sourcing' || item.status === 'Pending') ? 
-                          '<option value="process_request">Process Request</option>' : ''}
-                        ${item.qtyPending > 0 && (item.status === 'Pending Sourcing' || item.status === 'Partially Fulfilled') ? 
-                          '<option value="reject_reassign">Reject / Reassign</option>' : ''}
-                        ${item.status === 'Partially Fulfilled' || item.status === 'Exception' ? 
-                          '<option value="manual_closure">Manual Closure</option>' : ''}
+                          '<option value="create_manual_to">Create Manual TO</option>' : ''}
+                        ${item.qtyPending > 0 && (item.status === 'Pending Sourcing' || item.status === 'Pending' || item.status === 'Partially Fulfilled') ? 
+                          '<option value="mark_distributor_po">Mark for Distributor PO</option>' : ''}
+                        ${item.qtyPending > 0 && (item.status === 'Exception' || item.status === 'Pending Sourcing') ? 
+                          '<option value="mark_unavailable">Mark Unavailable</option>' : ''}
                       </select>
                     </td>
                   </tr>
@@ -328,7 +327,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     onOpenModal(`Web Order Details: ${order.id}`, content, 'modal-xl');
   };
 
-  // Get available actions based on order status
+  // Get available actions based on order status - Web Order Level
   const getOrderActions = (order) => {
     const status = order.overallStatus || order.status;
     const actions = [];
@@ -336,30 +335,35 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     // Always show View Details first
     actions.push({ label: 'View Details', value: 'view' });
 
-    // Add status-specific actions based on requirements
+    // Show linked documents if available
+    const hasLinkedDocs = order.items ? 
+      order.items.some(item => item.linkedDocs && item.linkedDocs.length > 0) : 
+      (order.linkedDoc && order.linkedDoc.length > 0);
+    
+    if (hasLinkedDocs) {
+      actions.push({ label: 'View Linked TO/PO', value: 'view_docs' });
+    }
+
+    // Status-specific actions based on Back Order Fulfilment Dashboard requirements
     if (status === 'Pending Sourcing' || status === 'Pending') {
-      // Pending orders can be processed or rejected/reassigned
+      // Draft Request / Pending - can trigger sourcing process
       actions.push({ label: 'Process Request', value: 'process_request' });
-      actions.push({ label: 'Reject / Reassign', value: 'reject_reassign' });
+      actions.push({ label: 'Reject / Reassign Order', value: 'reject_reassign' });
     } 
     else if (status === 'Partially Fulfilled') {
-      // Partially fulfilled can be processed further or manually closed if needed
-      actions.push({ label: 'Process Request', value: 'process_request' });
+      // Partially completed - can process remaining or close manually
+      actions.push({ label: 'Process Remaining', value: 'process_request' });
+      actions.push({ label: 'Reject / Reassign Order', value: 'reject_reassign' });
       actions.push({ label: 'Manual Closure', value: 'manual_closure' });
     } 
-    else if (status === 'TO Created' || status === 'PO Created') {
-      // TO/PO created orders should NOT have manual closure option
-      // These are in the fulfilment pipeline and should complete normally
-      // Only view details available (already added above)
-    } 
+    else if (status === 'Exception') {
+      // Exception cases - mark for market purchase or manual intervention
+      actions.push({ label: 'Mark for Market Purchase', value: 'market_purchase' });
+      actions.push({ label: 'Reject / Reassign Order', value: 'reject_reassign' });
+      actions.push({ label: 'Manual Closure', value: 'manual_closure' });
+    }
     else if (status === 'Completed') {
-      // Only View Details for completed orders
-    } 
-    else if (status === 'Exception' || status === 'Rejected') {
-      // Exception/Rejected orders can be retried, reassigned, or manually closed
-      actions.push({ label: 'Process Request', value: 'process_request' });
-      actions.push({ label: 'Reject / Reassign', value: 'reject_reassign' });
-      actions.push({ label: 'Manual Closure', value: 'manual_closure' });
+      // Only view details for completed orders
     }
 
     return actions;
@@ -533,6 +537,46 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           </div>
         `;
         onOpenModal('Reject / Reassign Order', rejectContent, 'modal-lg');
+        break;
+        
+      case 'market_purchase':
+        // Mark for Market Purchase - For products unavailable in stores/distributors
+        const marketContent = `
+          <div class="mb-3">
+            <p class="text-muted">Mark order <strong>${order.id}</strong> for market purchase</p>
+            <div class="alert alert-info mb-3">
+              <strong>ℹ Info:</strong> This will initiate external market purchase for products unavailable through internal sources.
+            </div>
+            
+            <div class="row g-2 mb-3">
+              <div class="col-sm-6"><div class="text-muted small">Current Status</div><div><span class="badge ${getStatusBadgeClass(status)}">${status}</span></div></div>
+              <div class="col-sm-6"><div class="text-muted small">Qty Pending</div><div class="fw-medium text-warning">${order.items ? order.items.reduce((sum, item) => sum + item.qtyPending, 0) : order.qtyPending || 0}</div></div>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label fw-medium">Market Purchase Status</label>
+              <select class="form-select" id="marketStatus">
+                <option value="initiated">Initiated for Market Purchase</option>
+                <option value="unavailable">Not Available in Market</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-medium">Vendor/Supplier (Optional)</label>
+              <input type="text" class="form-control" placeholder="Enter vendor name if known">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-medium">Remarks</label>
+              <textarea class="form-control" rows="3" placeholder="Provide details about market sourcing attempts..." required></textarea>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button class="btn btn-secondary" onclick="document.querySelector('.modal .btn-close').click()">Cancel</button>
+            <button class="btn btn-primary" onclick="alert('Order marked for market purchase'); document.querySelector('.modal .btn-close').click();">Confirm</button>
+          </div>
+        `;
+        onOpenModal('Mark for Market Purchase', marketContent, 'modal-lg');
         break;
         
       case 'manual_closure':
@@ -915,12 +959,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                       linkedDoc: order.linkedDoc
                     };
                     
-                    const isHighlighted = highlightedWebOrder && highlightedWebOrder === order.id;
-                    
-                    // Debug logging
-                    if (highlightedWebOrder) {
-                      console.log('Check highlight - Looking for:', highlightedWebOrder, 'Current order:', order.id, 'Match:', isHighlighted);
-                    }
+                    const isHighlighted = highlightedWebOrder && order.id === highlightedWebOrder;
                     
                     return (
                       <tr 
