@@ -76,14 +76,14 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       content = (
         <div>
           <Row className="mb-3">
-            <Col md={6}>
+            <Col xs={12} sm={6} md={6}>
               <div className="p-3 bg-primary bg-opacity-10 rounded">
                 <h6 className="text-primary">Transfer Orders (TO)</h6>
                 <h4>{toOrders.length} Orders</h4>
                 <small>Fulfilled: {toOrders.filter(o => o.status === 'Fulfilled').length}</small>
               </div>
             </Col>
-            <Col md={6}>
+            <Col xs={12} sm={6} md={6}>
               <div className="p-3 bg-info bg-opacity-10 rounded">
                 <h6 className="text-info">Purchase Orders (PO)</h6>
                 <h4>{poOrders.length} Orders</h4>
@@ -124,19 +124,19 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       content = (
         <div>
           <Row className="mb-3">
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-success bg-opacity-10 rounded">
                 <h6 className="text-success">Fulfilled</h6>
                 <h4>{fulfilled.length}</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-warning bg-opacity-10 rounded">
                 <h6 className="text-warning">Pending</h6>
                 <h4>{pending.length}</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={12} md={4}>
               <div className="p-3 bg-danger bg-opacity-10 rounded">
                 <h6 className="text-danger">Rejected</h6>
                 <h4>{rejected.length}</h4>
@@ -176,19 +176,19 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       content = (
         <div>
           <Row className="mb-3">
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-warning bg-opacity-10 rounded">
                 <h6 className="text-warning">Total Market Purchases</h6>
                 <h4>{marketPurchaseOrders.length}</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-success bg-opacity-10 rounded">
                 <h6 className="text-success">Fulfilled</h6>
                 <h4>{mpFulfilled.length}</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={12} md={4}>
               <div className="p-3 bg-info bg-opacity-10 rounded">
                 <h6 className="text-info">Pending</h6>
                 <h4>{mpPending.length}</h4>

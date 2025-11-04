@@ -90,19 +90,19 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       content = (
         <div>
           <Row className="mb-3">
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-info bg-opacity-10 rounded">
                 <h6 className="text-info">0-3 Days</h6>
                 <h4>{age0to3.length} Orders</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-warning bg-opacity-10 rounded">
                 <h6 className="text-warning">3-7 Days</h6>
                 <h4>{age3to7.length} Orders</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={12} md={4}>
               <div className="p-3 bg-danger bg-opacity-10 rounded">
                 <h6 className="text-danger">&gt;7 Days</h6>
                 <h4>{age7plus.length} Orders</h4>
@@ -153,19 +153,19 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       content = (
         <div>
           <Row className="mb-3">
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-primary bg-opacity-10 rounded">
                 <h6 className="text-primary">Store (TO)</h6>
                 <h4>{storeOrders.length} Orders</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={6} md={4}>
               <div className="p-3 bg-info bg-opacity-10 rounded">
                 <h6 className="text-info">Distributor (PO)</h6>
                 <h4>{distOrders.length} Orders</h4>
               </div>
             </Col>
-            <Col md={4}>
+            <Col xs={12} sm={12} md={4}>
               <div className="p-3 bg-warning bg-opacity-10 rounded">
                 <h6 className="text-warning">Pending</h6>
                 <h4>{pendingOrders.length} Orders</h4>

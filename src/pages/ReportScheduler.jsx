@@ -322,7 +322,7 @@ const ReportScheduler = ({ onShowToast, onOpenModal }) => {
           <Card.Body>
             <Form>
               <Row className="g-3">
-                <Col md={6}>
+                <Col xs={12} sm={6} md={6}>
                   <Form.Group>
                     <Form.Label className="fw-medium">Schedule Name</Form.Label>
                     <Form.Control
@@ -334,7 +334,7 @@ const ReportScheduler = ({ onShowToast, onOpenModal }) => {
                     />
                   </Form.Group>
                 </Col>
-                <Col md={6}>
+                <Col xs={12} sm={6} md={6}>
                   <Form.Group>
                     <Form.Label className="fw-medium">Report Type</Form.Label>
                     <Form.Select
@@ -350,7 +350,7 @@ const ReportScheduler = ({ onShowToast, onOpenModal }) => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={4}>
+                <Col xs={12} sm={6} md={4}>
                   <Form.Group>
                     <Form.Label className="fw-medium">Frequency</Form.Label>
                     <Form.Select
@@ -364,7 +364,7 @@ const ReportScheduler = ({ onShowToast, onOpenModal }) => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={4}>
+                <Col xs={12} sm={6} md={4}>
                   <Form.Group>
                     <Form.Label className="fw-medium">Time</Form.Label>
                     <Form.Control
@@ -375,7 +375,7 @@ const ReportScheduler = ({ onShowToast, onOpenModal }) => {
                     />
                   </Form.Group>
                 </Col>
-                <Col md={4}>
+                <Col xs={12} sm={12} md={4}>
                   <Form.Group>
                     <Form.Label className="fw-medium">Format</Form.Label>
                     <Form.Select
@@ -390,7 +390,7 @@ const ReportScheduler = ({ onShowToast, onOpenModal }) => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={12}>
+                <Col xs={12} md={12}>
                   <Form.Group>
                     <Form.Label className="fw-medium">Recipients (comma separated email addresses)</Form.Label>
                     <Form.Control
@@ -403,7 +403,7 @@ const ReportScheduler = ({ onShowToast, onOpenModal }) => {
                     />
                   </Form.Group>
                 </Col>
-                <Col md={12}>
+                <Col xs={12} md={12}>
                   <Form.Check
                     type="checkbox"
                     name="active"

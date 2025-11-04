@@ -71,6 +71,12 @@
   padding: 0.75rem 0.25rem;
 }
 
+.sidebar-bg.collapsed .sidebar-link.active {
+
+  border-left: 4px solid #f97316;
+  width: 100%;
+}
+
 .sidebar-link.active {
   background-color: #4f46e5;
   color: white;
@@ -171,27 +177,11 @@
   transform: translateY(-2px);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
   border-color: #6366f1 !important;
+  border-top: 4px solid #6366f1 !important;
 }
 
 .clickable-card:active {
   transform: translateY(-1px);
-}
-
-.clickable-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #6366f1, #8b5cf6);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  border-radius: 0.5rem 0.5rem 0 0;
-}
-
-.clickable-card:hover::before {
-  opacity: 1;
 }
 
 /* Chart Container */
@@ -466,22 +456,47 @@
     grid-template-columns: 1fr;
   }
   
+  /* KPI Cards responsive */
+  .kpi-card {
+    margin-bottom: 0.75rem;
+  }
+  
+  .kpi-value {
+    font-size: 1.5rem;
+  }
+  
+  .kpi-title {
+    font-size: 0.75rem;
+  }
+  
   /* Ensure carousel controls are visible on mobile */
   .carousel-control-prev,
   .carousel-control-next {
     display: flex !important;
   }
   
+  /* Charts responsive */
+  .chart-container {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .chart-container h5 {
+    font-size: 0.875rem;
+  }
+  
   /* Table adjustments for mobile */
   .table-responsive {
-    padding: 1rem !important;
+    padding: 0.5rem !important;
     margin-top: 1rem !important;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    border-radius: 0.5rem;
   }
   
   .table {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
+    min-width: 600px;
   }
   
   .table th,
@@ -490,11 +505,123 @@
     white-space: nowrap;
   }
   
+  .table th {
+    font-size: 0.7rem;
+  }
+  
+  /* Status badges smaller on mobile */
+  .status-badge {
+    font-size: 0.625rem;
+    padding: 0.2rem 0.5rem;
+  }
+  
   /* Filter controls stack on mobile */
   .row > .col-md-3,
   .row > .col-md-4,
   .row > .col-md-6 {
     margin-bottom: 0.75rem;
+  }
+  
+  /* Form controls touch-friendly */
+  .form-control,
+  .form-select {
+    font-size: 1rem;
+    padding: 0.625rem 0.75rem;
+  }
+  
+  /* Buttons touch-friendly */
+  .btn {
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  /* Modal adjustments */
+  .modal-content {
+    margin: 1rem;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem;
+  }
+  
+  /* Typography adjustments */
+  h2 {
+    font-size: 1.25rem;
+  }
+  
+  h5 {
+    font-size: 0.875rem;
+  }
+  
+  /* Clickable cards on mobile */
+  .clickable-card:hover {
+    transform: translateY(0);
+  }
+  
+  .clickable-card:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Small phones - extra small screens */
+@media (max-width: 576px) {
+  .header-bg .navbar-brand {
+    font-size: 0.75rem !important;
+    max-width: 50%;
+  }
+  
+  .main-content {
+    padding: 0.75rem !important;
+  }
+  
+  .kpi-value {
+    font-size: 1.25rem;
+  }
+  
+  .kpi-title {
+    font-size: 0.7rem;
+    white-space: normal;
+  }
+  
+  .chart-container {
+    padding: 0.75rem;
+  }
+  
+  .table-responsive {
+    padding: 0.25rem !important;
+  }
+  
+  h2 {
+    font-size: 1.125rem;
+  }
+  
+  .btn {
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.875rem;
+  }
+  
+  /* Better touch targets */
+  .form-control,
+  .form-select,
+  .btn {
+    min-height: 44px;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+  .kpi-card .card-body {
+    padding: 0.75rem;
+  }
+  
+  .kpi-value {
+    font-size: 1.25rem;
+  }
+  
+  .chart-container {
+    padding: 0.75rem;
   }
 }
 

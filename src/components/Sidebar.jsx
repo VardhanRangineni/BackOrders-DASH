@@ -67,7 +67,7 @@ const Sidebar = ({ mode, activePage, onNavigate, onToggle }) => {
         </Button>
       </div>
 
-      <Nav className="flex-column p-3">
+      <Nav className="flex-column pt-3">
         <button
           onClick={(e) => { e.preventDefault(); onNavigate(navItems[0].id); }}
           className={`sidebar-link d-flex align-items-center rounded mb-2 ${
