@@ -666,6 +666,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                     </Card.Body>
                   </Card>
                 </Col>
+              </Row>
             </Carousel.Item>
             <Carousel.Item>
               <Row className="g-3 px-2 pb-4 pt-2">
