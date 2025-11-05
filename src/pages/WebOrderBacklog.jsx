@@ -1046,7 +1046,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         // Create global function
         window.processOrderRequest = (orderId) => {
           const processOption = document.querySelector('input[name="processOption"]:checked')?.value || 'auto_source';
-          const priority = document.getElementById('priorityLevel')?.value || 'normal';
           
           setWebOrders(prevOrders => {
             return prevOrders.map(o => {
