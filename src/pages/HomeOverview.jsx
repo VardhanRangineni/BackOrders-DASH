@@ -2,7 +2,7 @@ import React from 'react';
 import { Row, Col, Card } from 'react-bootstrap';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { dateDiffInDays } from '../utils/utils';
+import { dateDiffInDays, dateDiffInHours } from '../utils/utils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
@@ -93,6 +93,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
   };
 
   const calculateKPIs = () => {
+    // Web Order KPIs
     const total = webOrders.length;
     const completed = webOrders.filter(o => (o.overallStatus || o.status) === 'Completed');
     const fulfilledOrders = webOrders.filter(o => {
@@ -107,18 +108,56 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
       totalDays += dateDiffInDays(createdDate, updatedDate);
     });
 
+    // Sourcing Order KPIs
+    const fulfilled = sourcingOrders.filter(o => o.status === 'Fulfilled');
+    const fulfilledTOs = fulfilled.filter(o => o.type === 'TO');
+    const fulfilledPOs = fulfilled.filter(o => o.type === 'PO');
+    
+    let totalHoursTO = 0;
+    fulfilledTOs.forEach(o => { totalHoursTO += dateDiffInHours(o.created, o.lastUpdated); });
+    
+    let totalHoursPO = 0;
+    fulfilledPOs.forEach(o => { totalHoursPO += dateDiffInHours(o.created, o.lastUpdated); });
+
     const retriedOrders = sourcingOrders.filter(o => o.retry > 0);
     const successfulRetries = retriedOrders.filter(o => o.status === 'Fulfilled');
     const retryRate = retriedOrders.length > 0 ? ((successfulRetries.length / retriedOrders.length) * 100).toFixed(0) : 0;
 
+    // Market Purchase Analytics
+    const marketPurchaseOrders = sourcingOrders.filter(o => o.marketPurchase === true);
+    const marketPurchaseCount = marketPurchaseOrders.length;
+    const marketPurchasePercentage = sourcingOrders.length > 0 ? ((marketPurchaseCount / sourcingOrders.length) * 100).toFixed(1) : 0;
+    const marketPurchaseFulfilled = marketPurchaseOrders.filter(o => o.status === 'Fulfilled').length;
+    const marketPurchasePending = marketPurchaseOrders.filter(o => o.status !== 'Fulfilled' && o.status !== 'Rejected').length;
+
     return {
-      total,
-      pending: webOrders.filter(o => (o.overallStatus || o.status) === 'Pending Sourcing').length,
-      rate: total > 0 ? ((fulfilledOrders.length / total) * 100).toFixed(0) : 0,
-      avgTime: completed.length > 0 ? (totalDays / completed.length).toFixed(1) : 0,
-      totalSourcing: sourcingOrders.length,
-      pendingStore: sourcingOrders.filter(o => o.type === 'TO' && (o.status === 'Draft' || o.status === 'Accepted')).length,
-      retryRate
+      // Web Order KPIs
+      webOrders: {
+        total,
+        pending: webOrders.filter(o => (o.overallStatus || o.status) === 'Pending Sourcing').length,
+        partial: webOrders.filter(o => (o.overallStatus || o.status) === 'Partially Fulfilled').length,
+        completed: completed.length,
+        exception: webOrders.filter(o => {
+          const status = o.overallStatus || o.status;
+          return status === 'Exception' || status === 'Rejected';
+        }).length,
+        rate: total > 0 ? ((fulfilledOrders.length / total) * 100).toFixed(0) : 0,
+        avgTime: completed.length > 0 ? (totalDays / completed.length).toFixed(1) : 0
+      },
+      // Sourcing Order KPIs
+      sourcingOrders: {
+        total: sourcingOrders.length,
+        pending: sourcingOrders.filter(o => o.status === 'Draft' || o.status === 'Accepted' || o.status === 'In Dispatch').length,
+        fulfilled: fulfilled.length,
+        rejected: sourcingOrders.filter(o => o.status === 'Rejected' || o.status === 'Cancelled').length,
+        avgTimeTo: fulfilledTOs.length > 0 ? (totalHoursTO / fulfilledTOs.length).toFixed(1) : 0,
+        avgTimePo: fulfilledPOs.length > 0 ? (totalHoursPO / fulfilledPOs.length).toFixed(1) : 0,
+        retryRate,
+        marketPurchaseCount,
+        marketPurchasePercentage,
+        marketPurchaseFulfilled,
+        marketPurchasePending
+      }
     };
   };
 
@@ -259,96 +298,213 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
 
   return (
     <div>
-      <h2 className="mb-4 fw-bold">Home Overview</h2>
+      <h2 className="mb-4 fw-bold">Dashboard Overview</h2>
       
-      {/* Web Order KPIs */}
-      <h4 className="mt-3 mb-3 fw-bold text-primary">
-        <i className="bi bi-cart-check me-2"></i>Web Order Metrics
-      </h4>
-      <Row className="g-3 mb-4">
-        <Col xs={12} sm={6} lg={4} xl={3}>
-          <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('total')}>
-            <Card.Body>
-              <div className="kpi-title">
-                Total Back Orders
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </div>
-              <div className="kpi-value">{kpis.total}</div>
-              <div className="kpi-subtitle">Click for details</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6} lg={4} xl={3}>
-          <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('pending')}>
-            <Card.Body>
-              <div className="kpi-title">
-                Pending Sourcing
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </div>
-              <div className="kpi-value">{kpis.pending}</div>
-              <div className="kpi-subtitle">Click for details</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6} lg={4} xl={3}>
-          <Card className="kpi-card h-100">
-            <Card.Body>
-              <div className="kpi-title">Fulfilment Rate</div>
-              <div className="kpi-value text-success">{kpis.rate}%</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6} lg={4} xl={3}>
-          <Card className="kpi-card h-100">
-            <Card.Body>
-              <div className="kpi-title">Avg. Fulfilment Time</div>
-              <div className="kpi-value">{kpis.avgTime} Days</div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      {/* ========== WEB ORDER BACKLOG KPIs ========== */}
+      <div className="mb-5">
+        <h4 className="mt-3 mb-3 fw-bold text-primary border-bottom pb-2">
+          <i className="bi bi-cart-check me-2"></i>Web Order Backlog Metrics
+        </h4>
+        <Row className="g-3 mb-3">
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('total')}>
+              <Card.Body>
+                <div className="kpi-title">
+                  Total Web Orders
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
+                <div className="kpi-value">{kpis.webOrders.total}</div>
+                <div className="kpi-subtitle">All back orders</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('pending')}>
+              <Card.Body>
+                <div className="kpi-title">
+                  Pending Sourcing
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
+                <div className="kpi-value text-warning">{kpis.webOrders.pending}</div>
+                <div className="kpi-subtitle">Awaiting sourcing</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Partially Fulfilled</div>
+                <div className="kpi-value text-info">{kpis.webOrders.partial}</div>
+                <div className="kpi-subtitle">In progress</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Completed Orders</div>
+                <div className="kpi-value text-success">{kpis.webOrders.completed}</div>
+                <div className="kpi-subtitle">Fully fulfilled</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Exception / Rejected</div>
+                <div className="kpi-value text-danger">{kpis.webOrders.exception}</div>
+                <div className="kpi-subtitle">Requires attention</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Fulfillment Rate</div>
+                <div className="kpi-value text-success">{kpis.webOrders.rate}%</div>
+                <div className="kpi-subtitle">Success rate</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Avg. Fulfillment Time</div>
+                <div className="kpi-value">{kpis.webOrders.avgTime}</div>
+                <div className="kpi-subtitle">Days to complete</div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </div>
 
-      {/* Sourcing (TO/PO) KPIs */}
-      <h4 className="mt-4 mb-3 fw-bold text-success">
-        <i className="bi bi-truck me-2"></i>Sourcing (TO/PO) Metrics
-      </h4>
-      <Row className="g-3 mb-4">
-        <Col xs={12} sm={6} lg={4} xl={3}>
-          <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('sourcing')}>
-            <Card.Body>
-              <div className="kpi-title">
-                Total Sourcing Docs
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </div>
-              <div className="kpi-value">{kpis.totalSourcing}</div>
-              <div className="kpi-subtitle">Click for details</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6} lg={4} xl={3}>
-          <Card className="kpi-card h-100">
-            <Card.Body>
-              <div className="kpi-title">Pending Store Requests (TO)</div>
-              <div className="kpi-value">{kpis.pendingStore}</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6} lg={4} xl={3}>
-          <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('retry')}>
-            <Card.Body>
-              <div className="kpi-title">
-                Retry Success Rate
-                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
-              </div>
-              <div className="kpi-value text-primary">{kpis.retryRate}%</div>
-              <div className="kpi-subtitle">Click for details</div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      {/* ========== TO/PO TRACKING KPIs ========== */}
+      <div className="mb-5">
+        <h4 className="mt-4 mb-3 fw-bold text-success border-bottom pb-2">
+          <i className="bi bi-truck me-2"></i>TO/PO Tracking Metrics
+        </h4>
+        <Row className="g-3 mb-3">
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('sourcing')}>
+              <Card.Body>
+                <div className="kpi-title">
+                  Total TO/PO Documents
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
+                <div className="kpi-value">{kpis.sourcingOrders.total}</div>
+                <div className="kpi-subtitle">All sourcing docs</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Pending TO/PO</div>
+                <div className="kpi-value text-warning">{kpis.sourcingOrders.pending}</div>
+                <div className="kpi-subtitle">In progress</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Fulfilled TO/PO</div>
+                <div className="kpi-value text-success">{kpis.sourcingOrders.fulfilled}</div>
+                <div className="kpi-subtitle">Completed docs</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Rejected / Cancelled</div>
+                <div className="kpi-value text-danger">{kpis.sourcingOrders.rejected}</div>
+                <div className="kpi-subtitle">Failed docs</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Avg. TO Fulfillment</div>
+                <div className="kpi-value">{kpis.sourcingOrders.avgTimeTo}</div>
+                <div className="kpi-subtitle">Hours (Store)</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Avg. PO Fulfillment</div>
+                <div className="kpi-value">{kpis.sourcingOrders.avgTimePo}</div>
+                <div className="kpi-subtitle">Hours (Distributor)</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('retry')}>
+              <Card.Body>
+                <div className="kpi-title">
+                  Retry Success Rate
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
+                <div className="kpi-value text-primary">{kpis.sourcingOrders.retryRate}%</div>
+                <div className="kpi-subtitle">Recheck success</div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </div>
+
+      {/* ========== MARKET PURCHASE KPIs ========== */}
+      <div className="mb-5">
+        <h4 className="mt-4 mb-3 fw-bold text-warning border-bottom pb-2">
+          <i className="bi bi-cart-plus me-2"></i>Market Purchase Metrics
+        </h4>
+        <Row className="g-3 mb-3">
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Total Market Purchases</div>
+                <div className="kpi-value">{kpis.sourcingOrders.marketPurchaseCount}</div>
+                <div className="kpi-subtitle">External sourcing</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">Market Purchase %</div>
+                <div className="kpi-value text-warning">{kpis.sourcingOrders.marketPurchasePercentage}%</div>
+                <div className="kpi-subtitle">Of all sourcing</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">MP Fulfilled</div>
+                <div className="kpi-value text-success">{kpis.sourcingOrders.marketPurchaseFulfilled}</div>
+                <div className="kpi-subtitle">Completed</div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} lg={4} xl={3}>
+            <Card className="kpi-card h-100">
+              <Card.Body>
+                <div className="kpi-title">MP Pending</div>
+                <div className="kpi-value text-info">{kpis.sourcingOrders.marketPurchasePending}</div>
+                <div className="kpi-subtitle">In progress</div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </div>
       
-      {/* Web Order Charts */}
-      <h4 className="mt-4 mb-3 fw-bold">Web Order Analytics</h4>
+      {/* ========== ANALYTICS CHARTS ========== */}
+      <h4 className="mt-5 mb-3 fw-bold text-secondary border-bottom pb-2">
+        <i className="bi bi-graph-up me-2"></i>Analytics & Insights
+      </h4>
       <Row className="g-3 mb-4">
         <Col xs={12} lg={6}>
           <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>

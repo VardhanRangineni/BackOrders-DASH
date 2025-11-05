@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Row, Col, Card, Form, Button, Table, Carousel, Modal } from 'react-bootstrap';
-import { formatDate, dateDiffInDays, exportToCSV, getStatusBadgeClass } from '../utils/utils';
+import { Row, Col, Card, Form, Button, Table, Modal } from 'react-bootstrap';
+import { formatDate, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
+import OrderDetailsModal from '../components/OrderDetailsModal';
 
 const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, highlightedWebOrder, setHighlightedWebOrder, initialFilters = {}, clearFilters }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [sourceFilter, setSourceFilter] = useState('All');
-  const [kpiViewMode, setKpiViewMode] = useState('wrap'); // 'wrap' or 'slider'
-  const [carouselIndex, setCarouselIndex] = useState(0);
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [showChartModal, setShowChartModal] = useState(false);
   const [chartModalData] = useState({ title: '', content: null });
+  const [showFilters, setShowFilters] = useState(false);
   const highlightedRowRef = useRef(null);
   const tableRef = useRef(null);
 
@@ -59,39 +59,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       return () => clearTimeout(timer);
     }
   }, [highlightedWebOrder, setHighlightedWebOrder]);
-
-  const calculateKPIs = () => {
-    const total = webOrders.length;
-    const completed = webOrders.filter(o => (o.overallStatus || o.status) === 'Completed');
-    const completedCount = completed.length;
-    
-    let totalDays = 0;
-    completed.forEach(o => {
-      const createdDate = new Date(o.created);
-      const updatedDate = new Date(o.lastUpdated);
-      totalDays += dateDiffInDays(createdDate, updatedDate);
-    });
-
-    const fulfilledOrders = webOrders.filter(o => {
-      const status = o.overallStatus || o.status;
-      return status === 'Completed' || status === 'Partially Fulfilled';
-    });
-    
-    return {
-      total,
-      pending: webOrders.filter(o => (o.overallStatus || o.status) === 'Pending Sourcing').length,
-      partial: webOrders.filter(o => (o.overallStatus || o.status) === 'Partially Fulfilled').length,
-      completed: completedCount,
-      exception: webOrders.filter(o => {
-        const status = o.overallStatus || o.status;
-        return status === 'Exception' || status === 'Rejected';
-      }).length,
-      rate: total > 0 ? ((fulfilledOrders.length / total) * 100).toFixed(0) : 0,
-      avgTime: completedCount > 0 ? (totalDays / completedCount).toFixed(1) : 0
-    };
-  };
-
-  const kpis = calculateKPIs();
 
   // Filter orders
   const filteredOrders = webOrders.filter(order => {
@@ -201,128 +168,573 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     onShowToast(`Exported ${exportData.length} product line items from ${filteredOrders.length} orders to web_orders_export.csv`);
   };
 
-  const handleViewDetails = (order) => {
-    const remarksHTML = order.remarks ? 
-      `<div class="mb-3"><div class="fw-medium text-secondary mb-1">Remarks / Reason</div><div class="alert alert-info mb-0">${order.remarks}</div></div>` : '';
+  const handleProductAction = (productId, actionValue) => {
+    console.log('handleProductAction called with productId:', productId, 'action:', actionValue);
     
-    // Build products table for multi-item orders or single product display
-    let productsHTML = '';
-    if (order.items && order.items.length > 0) {
-      productsHTML = `
-        <div class="mb-3">
-          <div class="fw-medium text-secondary mb-2">Products (${order.items.length} item${order.items.length > 1 ? 's' : ''})</div>
-          <div class="table-responsive" style="max-height: 400px; overflow-x: auto; overflow-y: auto;">
-            <table class="table table-sm table-bordered mb-0" style="min-width: 900px;">
-              <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
-                <tr>
-                  <th>Product</th>
-                  <th>SKU</th>
-                  <th>Qty Req.</th>
-                  <th>Fulfilled</th>
-                  <th>Pending</th>
-                  <th>Status</th>
-                  <th>Source</th>
-                  <th>Linked Docs</th>
-                  <th style="min-width: 150px;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${order.items.map((item, idx) => `
-                  <tr>
-                    <td>${item.product || '-'}</td>
-                    <td>${item.sku || '-'}</td>
-                    <td>${item.qty || 0}</td>
-                    <td>${item.qtyFulfilled || 0}</td>
-                    <td>${item.qtyPending || 0}</td>
-                    <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status || 'Unknown'}</span></td>
-                    <td>${item.source || '-'}</td>
-                    <td>${item.linkedDocs?.join(', ') || '-'}</td>
-                    <td>
-                      <select class="form-select form-select-sm" onchange="
-                        if(this.value === 'view_details') alert('Product Details:\\n\\nProduct: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qty}\\nQty Fulfilled: ${item.qtyFulfilled}\\nQty Pending: ${item.qtyPending}\\nStatus: ${item.status}\\nSource: ${item.source || 'Not assigned'}\\nLinked Docs: ${item.linkedDocs?.join(', ') || 'None'}\\nRemarks: ${item.remarks || 'None'}');
-                        else if(this.value === 'view_linked_to_po') alert('Viewing linked TO/PO documents:\\n${item.linkedDocs?.join('\\n') || 'No linked documents found'}');
-                        else if(this.value === 'create_manual_to') alert('Creating manual Transfer Order for ${item.product}\\nThis will reserve stock from a selected store.');
-                        else if(this.value === 'mark_distributor_po') alert('Marking ${item.product} for Distributor PO\\nSystem will auto-generate PO from configured distributor.');
-                        else if(this.value === 'mark_unavailable') alert('Marking ${item.product} as Unavailable\\nThis will be logged for market purchase attempt.');
-                        this.value = '';
-                      ">
-                        <option value="" selected hidden>Action</option>
-                        <option value="view_details">View Details</option>
-                        ${item.linkedDocs && item.linkedDocs.length > 0 ? 
-                          '<option value="view_linked_to_po">View Linked TO/PO</option>' : ''}
-                        ${item.qtyPending > 0 && (item.status === 'Pending Sourcing' || item.status === 'Pending') ? 
-                          '<option value="create_manual_to">Create Manual TO</option>' : ''}
-                        ${item.qtyPending > 0 && (item.status === 'Pending Sourcing' || item.status === 'Pending' || item.status === 'Partially Fulfilled') ? 
-                          '<option value="mark_distributor_po">Mark for Distributor PO</option>' : ''}
-                        ${item.qtyPending > 0 && (item.status === 'Exception' || item.status === 'Pending Sourcing') ? 
-                          '<option value="mark_unavailable">Mark Unavailable</option>' : ''}
-                      </select>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
-    } else {
-      // Legacy single product display
-      productsHTML = `
-        <div class="mb-3">
-          <div class="fw-medium text-secondary mb-2">Product Details</div>
-          <div class="row g-2">
-            <div class="col-sm-6"><div class="text-muted small">Product</div><div>${order.product || '-'}</div></div>
-            <div class="col-sm-6"><div class="text-muted small">SKU</div><div>${order.sku || '-'}</div></div>
-            <div class="col-sm-4"><div class="text-muted small">Qty Requested</div><div>${order.qty || 0}</div></div>
-            <div class="col-sm-4"><div class="text-muted small">Qty Fulfilled</div><div>${order.qtyFulfilled || 0}</div></div>
-            <div class="col-sm-4"><div class="text-muted small">Qty Pending</div><div>${order.qtyPending || 0}</div></div>
-          </div>
-        </div>
-      `;
+    // Find the product and its parent order
+    let product = null;
+    let parentOrder = null;
+    
+    for (const order of webOrders) {
+      if (order.items) {
+        product = order.items.find(item => (item.lineId || item.id) === productId);
+        if (product) {
+          parentOrder = order;
+          console.log('Found product:', product.product, 'lineId:', product.lineId);
+          break;
+        }
+      }
     }
-    
-    // Calculate totals
-    const totalQty = order.items ? order.items.reduce((sum, item) => sum + item.qty, 0) : order.qty;
-    const totalFulfilled = order.items ? order.items.reduce((sum, item) => sum + item.qtyFulfilled, 0) : order.qtyFulfilled;
-    const totalPending = order.items ? order.items.reduce((sum, item) => sum + item.qtyPending, 0) : order.qtyPending;
-    const status = order.overallStatus || order.status;
-    const sources = order.items ? order.items.map(item => item.source).filter((v, i, a) => a.indexOf(v) === i).join(', ') : order.source;
-    const linkedDocs = order.items ? order.items.flatMap(item => item.linkedDocs).join(', ') || '-' : order.linkedDoc;
-    
-    const content = `
-      <div class="mb-3">
-        <div class="row g-2">
-          <div class="col-sm-6"><div class="text-muted small">Customer</div><div class="fw-medium">${order.customer || '-'}</div></div>
-          <div class="col-sm-6"><div class="text-muted small">Order Status</div><div><span class="badge ${getStatusBadgeClass(status)}">${status || 'Unknown'}</span></div></div>
-        </div>
-      </div>
-      
-      ${productsHTML}
-      
-      <div class="mb-3">
-        <div class="fw-medium text-secondary mb-2">Summary</div>
-        <div class="row g-2">
-          <div class="col-sm-4"><div class="text-muted small">Total Qty Requested</div><div class="fw-medium">${totalQty || 0}</div></div>
-          <div class="col-sm-4"><div class="text-muted small">Total Fulfilled</div><div class="fw-medium text-success">${totalFulfilled || 0}</div></div>
-          <div class="col-sm-4"><div class="text-muted small">Total Pending</div><div class="fw-medium text-warning">${totalPending || 0}</div></div>
-        </div>
-      </div>
-      
-      <div class="mb-3">
-        <div class="fw-medium text-secondary mb-2">Order Information</div>
-        <div class="row g-2">
-          <div class="col-sm-6"><div class="text-muted small">Source(s)</div><div>${sources || '-'}</div></div>
-          <div class="col-sm-6"><div class="text-muted small">Linked Document(s)</div><div>${linkedDocs || '-'}</div></div>
-          <div class="col-sm-4"><div class="text-muted small">Created</div><div>${formatDate(order.created)}</div></div>
-          <div class="col-sm-4"><div class="text-muted small">Last Updated</div><div>${formatDate(order.lastUpdated)}</div></div>
-          <div class="col-sm-4"><div class="text-muted small">Age</div><div>${order.age || 0} days</div></div>
-          <div class="col-sm-6"><div class="text-muted small">Retries</div><div>${order.retry || 0}</div></div>
-          <div class="col-sm-6"><div class="text-muted small">Total Items</div><div>${order.totalItems || 1}</div></div>
-        </div>
-      </div>
-      
-      ${remarksHTML}
-    `;
+
+    if (!product) {
+      onShowToast('Product not found', true);
+      return;
+    }
+
+    switch (actionValue) {
+      case 'view_details':
+        // Show detailed product information in modal
+        const detailsContent = `
+          <div class="p-3">
+            <h5 class="mb-3 fw-bold">Product Line Details</h5>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="text-muted small">Product Name</div>
+                <div class="fw-medium">${product.product}</div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted small">SKU</div>
+                <div><code>${product.sku}</code></div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Qty Requested</div>
+                <div class="fw-medium">${product.qty}</div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Qty Fulfilled</div>
+                <div class="fw-medium text-success">${product.qtyFulfilled}</div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Qty Pending</div>
+                <div class="fw-medium text-warning">${product.qtyPending}</div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted small">Status</div>
+                <div><span class="badge bg-secondary">${product.status}</span></div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted small">Source</div>
+                <div>${product.source || 'Not assigned'}</div>
+              </div>
+              <div class="col-12">
+                <div class="text-muted small">Linked Documents</div>
+                <div>${product.linkedDocs?.join(', ') || 'None'}</div>
+              </div>
+              <div class="col-12">
+                <div class="text-muted small">Remarks</div>
+                <div class="alert alert-info mb-0">${product.remarks || 'No remarks'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        onOpenModal(`Product Details: ${product.product}`, detailsContent, 'modal-md');
+        break;
+        
+      case 'view_linked_to_po':
+        if (product.linkedDocs && product.linkedDocs.length > 0) {
+          const docsContent = `
+            <div class="p-3">
+              <h5 class="mb-3 fw-bold">Linked TO/PO Documents</h5>
+              <div class="list-group">
+                ${product.linkedDocs.map(doc => {
+                  const docType = doc.startsWith('TO-') ? 'Transfer Order' : 'Purchase Order';
+                  return `
+                  <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <i class="bi bi-file-earmark-text me-2"></i>
+                        <strong>${doc}</strong> <span class="badge bg-secondary ms-2">${docType}</span>
+                      </div>
+                      <button class="btn btn-sm btn-primary" onclick="window.viewDocument('${doc}', '${docType}', '${product.product}', '${product.sku}', ${product.qty})">
+                        <i class="bi bi-eye me-1"></i>View Document
+                      </button>
+                    </div>
+                  </div>
+                `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+          
+          // Create global function to view document
+          window.viewDocument = (docId, docType, productName, sku, qty) => {
+            const currentDate = new Date().toLocaleDateString();
+            const currentDateTime = new Date().toLocaleString();
+            const expectedDateTO = new Date(Date.now() + 2*24*60*60*1000).toLocaleDateString();
+            const expectedDatePO = new Date(Date.now() + 5*24*60*60*1000).toLocaleDateString();
+            
+            const toSpecific = `
+                <div class="mb-4">
+                  <h5 class="fw-bold mb-3">Transfer Information</h5>
+                  <div class="row">
+                    <div class="col-6">
+                      <p><strong>From Store:</strong> Central Warehouse</p>
+                      <p><strong>To Store:</strong> Store Location TBD</p>
+                    </div>
+                    <div class="col-6">
+                      <p><strong>Priority:</strong> High</p>
+                      <p><strong>Expected Date:</strong> ${expectedDateTO}</p>
+                    </div>
+                  </div>
+                </div>
+            `;
+            
+            const poSpecific = `
+                <div class="mb-4">
+                  <h5 class="fw-bold mb-3">Purchase Order Information</h5>
+                  <div class="row">
+                    <div class="col-6">
+                      <p><strong>Vendor:</strong> Distributor Name TBD</p>
+                      <p><strong>Payment Terms:</strong> Net 30</p>
+                    </div>
+                    <div class="col-6">
+                      <p><strong>Delivery Date:</strong> ${expectedDatePO}</p>
+                      <p><strong>PO Type:</strong> Standard</p>
+                    </div>
+                  </div>
+                </div>
+            `;
+            
+            const documentContent = `
+              <div class="document-view" style="background: white; padding: 40px; font-family: 'Courier New', monospace;">
+                <style>
+                  @media print {
+                    .no-print { display: none !important; }
+                    .document-view { padding: 20px !important; }
+                  }
+                </style>
+                
+                <div class="text-center mb-4 pb-3" style="border-bottom: 2px solid #000;">
+                  <h3 class="fw-bold mb-0">MedPlus Pharmacy</h3>
+                  <p class="mb-0 small">Back Order Fulfillment System</p>
+                </div>
+                
+                <div class="mb-4">
+                  <h4 class="fw-bold">${docType}</h4>
+                  <div class="row">
+                    <div class="col-6">
+                      <strong>Document ID:</strong> ${docId}
+                    </div>
+                    <div class="col-6 text-end">
+                      <strong>Date:</strong> ${currentDate}
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="mb-4">
+                  <h5 class="fw-bold mb-3">Order Details</h5>
+                  <table class="table table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>${productName}</td>
+                        <td>${sku}</td>
+                        <td>${qty}</td>
+                        <td><span class="badge bg-warning">Pending</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                ${docType === 'Transfer Order' ? toSpecific : poSpecific}
+                
+                <div class="mt-5 pt-3" style="border-top: 1px solid #ccc;">
+                  <div class="row">
+                    <div class="col-6">
+                      <p class="small mb-0"><strong>Prepared By:</strong> System Auto-Generated</p>
+                      <p class="small mb-0"><strong>Date:</strong> ${currentDateTime}</p>
+                    </div>
+                    <div class="col-6 text-end">
+                      <p class="small mb-0"><strong>Document Status:</strong> Draft</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="text-center mt-4 no-print">
+                  <button class="btn btn-primary btn-lg" onclick="window.print()">
+                    <i class="bi bi-printer me-2"></i>Print Document
+                  </button>
+                  <button class="btn btn-secondary btn-lg ms-2" onclick="window.location.reload()">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                  </button>
+                </div>
+              </div>
+            `;
+            
+            onOpenModal(docType + ': ' + docId, documentContent, 'modal-xl');
+          };
+          
+          onOpenModal(`Linked Documents - ${product.product}`, docsContent, 'modal-md');
+        } else {
+          onShowToast('No linked documents found for this product', true);
+        }
+        break;
+        
+      case 'create_manual_to':
+        if (product.qtyPending > 0) {
+          const newDoc = `TO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+          
+          setWebOrders(prevOrders => {
+            return prevOrders.map(order => {
+              if (order.id === parentOrder.id) {
+                const itemsToUpdate = [];
+                
+                // Process the items
+                order.items.forEach(item => {
+                  if ((item.lineId || item.id) === productId) {
+                    // Get fulfilled quantity (simulated - in real app this comes from store response)
+                    // For demo purposes, randomly fulfill 50-100% of quantity
+                    const fulfillmentRate = Math.random() > 0.3 ? 1 : (Math.random() * 0.5 + 0.5);
+                    const fulfilledQty = Math.floor(item.qtyPending * fulfillmentRate);
+                    const remainingQty = item.qtyPending - fulfilledQty;
+                    
+                    if (fulfilledQty > 0) {
+                      // Update current item with fulfilled quantity
+                      itemsToUpdate.push({
+                        ...item,
+                        qtyFulfilled: (item.qtyFulfilled || 0) + fulfilledQty,
+                        qtyPending: 0,
+                        linkedDocs: [...(item.linkedDocs || []), newDoc],
+                        status: 'TO Created',
+                        source: 'Store (TO)',
+                        retryCount: (item.retryCount || 0) + 1,
+                        remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] TO created: ${newDoc} - Fulfilled ${fulfilledQty} units`.trim()
+                      });
+                      
+                      // If partial fulfillment, create new Draft item for remaining quantity
+                      if (remainingQty > 0) {
+                        const newLineId = `${item.lineId || item.id}-R${(item.retryCount || 0) + 1}`;
+                        itemsToUpdate.push({
+                          ...item,
+                          lineId: newLineId,
+                          id: newLineId,
+                          qtyOrdered: remainingQty,
+                          qtyFulfilled: 0,
+                          qtyPending: remainingQty,
+                          linkedDocs: [],
+                          status: 'Draft',
+                          source: 'Pending Retry',
+                          retryCount: (item.retryCount || 0) + 1,
+                          remarks: `[${new Date().toLocaleString()}] Created from partial fulfillment - Remaining ${remainingQty} units from ${item.lineId || item.id}`
+                        });
+                      }
+                    } else {
+                      // No fulfillment, just update retry count and keep as Draft
+                      itemsToUpdate.push({
+                        ...item,
+                        retryCount: (item.retryCount || 0) + 1,
+                        status: (item.retryCount || 0) >= 4 ? 'Escalate to PO' : 'Draft',
+                        remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] TO attempt ${(item.retryCount || 0) + 1} - No stock available`.trim()
+                      });
+                    }
+                  } else {
+                    itemsToUpdate.push(item);
+                  }
+                });
+                
+                // Determine parent order status based on all items
+                let newOrderStatus = order.overallStatus || order.status;
+                const allCompleted = itemsToUpdate.every(item => item.qtyPending === 0 && item.status !== 'Draft');
+                const allException = itemsToUpdate.every(item => item.status === 'Exception');
+                const hasDrafts = itemsToUpdate.some(item => item.status === 'Draft');
+                const hasCreatedDocs = itemsToUpdate.some(item => 
+                  item.status === 'TO Created' || item.status === 'PO Created'
+                );
+                
+                if (allCompleted) {
+                  newOrderStatus = 'Completed';
+                } else if (allException) {
+                  newOrderStatus = 'Exception';
+                } else if (hasCreatedDocs) {
+                  newOrderStatus = 'In Progress';
+                } else if (hasDrafts) {
+                  newOrderStatus = 'Pending Sourcing';
+                }
+                
+                const updatedOrder = {
+                  ...order,
+                  items: itemsToUpdate,
+                  overallStatus: newOrderStatus,
+                  status: newOrderStatus,
+                  lastUpdated: new Date().toISOString().slice(0, 19).replace('T', ' ')
+                };
+                
+                // Force modal refresh
+                setTimeout(() => {
+                  handleViewDetails(updatedOrder);
+                }, 50);
+                
+                return updatedOrder;
+              }
+              return order;
+            });
+          });
+          
+          onShowToast(`✅ Manual Transfer Order created: ${newDoc}\n📄 Check items for fulfillment details`);
+        } else {
+          onShowToast('No pending quantity to fulfill', true);
+        }
+        break;
+        
+      case 'mark_distributor_po':
+        if (product.qtyPending > 0) {
+          const newDoc = `PO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+          
+          setWebOrders(prevOrders => {
+            return prevOrders.map(order => {
+              if (order.id === parentOrder.id) {
+                const itemsToUpdate = [];
+                
+                // Process the items
+                order.items.forEach(item => {
+                  if ((item.lineId || item.id) === productId) {
+                    // Get fulfilled quantity (simulated - in real app this comes from distributor response)
+                    const fulfillmentRate = Math.random() > 0.2 ? 1 : (Math.random() * 0.5 + 0.5);
+                    const fulfilledQty = Math.floor(item.qtyPending * fulfillmentRate);
+                    const remainingQty = item.qtyPending - fulfilledQty;
+                    
+                    if (fulfilledQty > 0) {
+                      // Update current item with fulfilled quantity
+                      itemsToUpdate.push({
+                        ...item,
+                        qtyFulfilled: (item.qtyFulfilled || 0) + fulfilledQty,
+                        qtyPending: 0,
+                        linkedDocs: [...(item.linkedDocs || []), newDoc],
+                        status: 'PO Created',
+                        source: 'Distributor (PO)',
+                        retryCount: (item.retryCount || 0) + 1,
+                        remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] PO created: ${newDoc} - Fulfilled ${fulfilledQty} units (Escalated from Store)`.trim()
+                      });
+                      
+                      // If partial fulfillment, create new Draft item for remaining quantity
+                      if (remainingQty > 0) {
+                        const newLineId = `${item.lineId || item.id}-R${(item.retryCount || 0) + 1}`;
+                        itemsToUpdate.push({
+                          ...item,
+                          lineId: newLineId,
+                          id: newLineId,
+                          qtyOrdered: remainingQty,
+                          qtyFulfilled: 0,
+                          qtyPending: remainingQty,
+                          linkedDocs: [],
+                          status: 'Draft',
+                          source: 'Pending Retry',
+                          retryCount: (item.retryCount || 0) + 1,
+                          remarks: `[${new Date().toLocaleString()}] Created from partial PO fulfillment - Remaining ${remainingQty} units from ${item.lineId || item.id}`
+                        });
+                      }
+                    } else {
+                      // No fulfillment, escalate to market purchase if max retries reached
+                      const newRetryCount = (item.retryCount || 0) + 1;
+                      itemsToUpdate.push({
+                        ...item,
+                        retryCount: newRetryCount,
+                        status: newRetryCount >= 4 ? 'Escalate to Market' : 'Draft',
+                        remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] PO attempt ${newRetryCount} - No stock from distributor`.trim()
+                      });
+                    }
+                  } else {
+                    itemsToUpdate.push(item);
+                  }
+                });
+                
+                // Determine parent order status based on all items
+                let newOrderStatus = order.overallStatus || order.status;
+                const allCompleted = itemsToUpdate.every(item => item.qtyPending === 0 && item.status !== 'Draft');
+                const allException = itemsToUpdate.every(item => item.status === 'Exception');
+                const hasDrafts = itemsToUpdate.some(item => item.status === 'Draft');
+                const hasCreatedDocs = itemsToUpdate.some(item => 
+                  item.status === 'TO Created' || item.status === 'PO Created'
+                );
+                
+                if (allCompleted) {
+                  newOrderStatus = 'Completed';
+                } else if (allException) {
+                  newOrderStatus = 'Exception';
+                } else if (hasCreatedDocs) {
+                  newOrderStatus = 'In Progress';
+                } else if (hasDrafts) {
+                  newOrderStatus = 'Pending Sourcing';
+                }
+                
+                const updatedOrder = {
+                  ...order,
+                  items: itemsToUpdate,
+                  overallStatus: newOrderStatus,
+                  status: newOrderStatus,
+                  lastUpdated: new Date().toISOString().slice(0, 19).replace('T', ' ')
+                };
+                
+                // Force modal refresh
+                setTimeout(() => {
+                  handleViewDetails(updatedOrder);
+                }, 50);
+                
+                return updatedOrder;
+              }
+              return order;
+            });
+          });
+          
+          onShowToast(`✅ Distributor PO created: ${newDoc}\n📄 Check items for fulfillment details`);
+        } else {
+          onShowToast('No pending quantity to fulfill', true);
+        }
+        break;
+        
+      case 'mark_unavailable':
+        if (product.qtyPending > 0) {
+          setWebOrders(prevOrders => {
+            return prevOrders.map(order => {
+              if (order.id === parentOrder.id) {
+                const updatedItems = order.items.map(item => {
+                  if ((item.lineId || item.id) === productId) {
+                    console.log('Marking product as unavailable:', item.product, 'lineId:', item.lineId);
+                    return {
+                      ...item,
+                      status: 'Not Available',
+                      qtyPending: 0,
+                      source: 'Exhausted All Sources',
+                      retryCount: (item.retryCount || 0) + 1,
+                      remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] Product marked as Not Available - All sourcing attempts exhausted (TO → PO → Market)`.trim()
+                    };
+                  }
+                  console.log('Keeping product unchanged:', item.product, 'lineId:', item.lineId);
+                  return item;
+                });
+                
+                console.log('Updated items:', updatedItems.map(i => ({product: i.product, status: i.status, lineId: i.lineId})));
+                
+                // Determine parent order status based on all items
+                let newOrderStatus = order.overallStatus || order.status;
+                const allNotAvailable = updatedItems.every(item => item.status === 'Not Available');
+                const someNotAvailable = updatedItems.some(item => item.status === 'Not Available');
+                const allCompleted = updatedItems.every(item => 
+                  item.qtyPending === 0 && (item.status === 'TO Created' || item.status === 'PO Created' || item.status === 'Completed')
+                );
+                const hasDrafts = updatedItems.some(item => item.status === 'Draft');
+                
+                if (allNotAvailable) {
+                  newOrderStatus = 'Exception';
+                } else if (allCompleted) {
+                  newOrderStatus = 'Completed';
+                } else if (someNotAvailable) {
+                  newOrderStatus = 'Partially Fulfilled';
+                } else if (hasDrafts) {
+                  newOrderStatus = 'Pending Sourcing';
+                }
+                
+                // Update the order with new items and status
+                const updatedOrder = {
+                  ...order,
+                  items: updatedItems,
+                  overallStatus: newOrderStatus,
+                  status: newOrderStatus,
+                  lastUpdated: new Date().toISOString().slice(0, 19).replace('T', ' ')
+                };
+                
+                // Force modal refresh by closing and reopening with updated data
+                setTimeout(() => {
+                  handleViewDetails(updatedOrder);
+                }, 50);
+                
+                return updatedOrder;
+              }
+              return order;
+            });
+          });
+          
+          onShowToast(`⚠️ ${product.product} marked as Not Available\n📝 All sourcing channels exhausted`);
+        } else {
+          onShowToast('No pending quantity to mark as unavailable', true);
+        }
+        break;
+        
+      case 'mark_market_purchase':
+        if (product.qtyPending > 0) {
+          setWebOrders(prevOrders => {
+            return prevOrders.map(order => {
+              if (order.id === parentOrder.id) {
+                const updatedItems = order.items.map(item => {
+                  if ((item.lineId || item.id) === productId) {
+                    return {
+                      ...item,
+                      status: 'Market Purchase',
+                      source: 'Market/External',
+                      retryCount: (item.retryCount || 0) + 1,
+                      remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] Escalated to Market Purchase - ${item.qtyPending} units to be sourced externally`.trim()
+                    };
+                  }
+                  return item;
+                });
+                
+                // Determine parent order status
+                let newOrderStatus = order.overallStatus || order.status;
+                const allCompleted = updatedItems.every(item => item.qtyPending === 0);
+                const hasMarketPurchase = updatedItems.some(item => item.status === 'Market Purchase');
+                const hasDrafts = updatedItems.some(item => item.status === 'Draft');
+                
+                if (allCompleted) {
+                  newOrderStatus = 'Completed';
+                } else if (hasMarketPurchase) {
+                  newOrderStatus = 'In Progress';
+                } else if (hasDrafts) {
+                  newOrderStatus = 'Pending Sourcing';
+                }
+                
+                const updatedOrder = {
+                  ...order,
+                  items: updatedItems,
+                  overallStatus: newOrderStatus,
+                  status: newOrderStatus,
+                  lastUpdated: new Date().toISOString().slice(0, 19).replace('T', ' ')
+                };
+                
+                setTimeout(() => {
+                  handleViewDetails(updatedOrder);
+                }, 50);
+                
+                return updatedOrder;
+              }
+              return order;
+            });
+          });
+          
+          onShowToast(`📦 ${product.product} escalated to Market Purchase\n💰 Will be sourced from external market`);
+        } else {
+          onShowToast('No pending quantity for market purchase', true);
+        }
+        break;
+        
+      default:
+        break;
+    }
+  };
+
+  const handleViewDetails = (order) => {
+    const content = (
+      <OrderDetailsModal 
+        order={order} 
+        onProductAction={handleProductAction}
+      />
+    );
     
     onOpenModal(`Web Order Details: ${order.id}`, content, 'modal-xl');
   };
@@ -385,21 +797,52 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         break;
 
       case 'view_docs':
-        // View linked TO/PO documents
+        // View linked TO/PO documents - collect all docs from all items
         const linkedDocs = order.items ? order.items.flatMap(item => item.linkedDocs || []) : (order.linkedDoc ? [order.linkedDoc] : []);
-        const docsHTML = linkedDocs.length > 0 ? linkedDocs.map(doc => `
+        
+        if (linkedDocs.length === 0) {
+          onShowToast('No linked documents found for this order', true);
+          break;
+        }
+        
+        // Create a mapping of documents to their products
+        const docProductMap = {};
+        if (order.items) {
+          order.items.forEach(item => {
+            if (item.linkedDocs) {
+              item.linkedDocs.forEach(doc => {
+                if (!docProductMap[doc]) {
+                  docProductMap[doc] = [];
+                }
+                docProductMap[doc].push({
+                  product: item.product,
+                  sku: item.sku,
+                  qty: item.qty
+                });
+              });
+            }
+          });
+        }
+        
+        const docsHTML = linkedDocs.map(doc => {
+          const docType = doc.startsWith('TO') ? 'Transfer Order' : 'Purchase Order';
+          const products = docProductMap[doc] || [{product: order.product || 'N/A', sku: order.sku || 'N/A', qty: order.qty || 0}];
+          const productInfo = products[0]; // Use first product for the view button
+          
+          return `
           <tr>
-            <td><a href="#" class="text-decoration-none fw-medium">${doc}</a></td>
-            <td><span class="badge ${doc.startsWith('TO') ? 'bg-primary' : 'bg-success'}">${doc.startsWith('TO') ? 'Transfer Order' : 'Purchase Order'}</span></td>
-            <td><span class="badge bg-info">In Progress</span></td>
+            <td><strong>${doc}</strong></td>
+            <td><span class="badge ${doc.startsWith('TO') ? 'bg-primary' : 'bg-success'}">${docType}</span></td>
+            <td><span class="badge bg-warning">Pending</span></td>
+            <td>${doc.startsWith('TO') ? 'Store Transfer' : 'Distributor Purchase'}</td>
             <td>
-              ${doc.startsWith('TO') ? 'Store Transfer' : 'Distributor Purchase'}
-            </td>
-            <td>
-              <button class="btn btn-sm btn-outline-primary" onclick="alert('Opening ${doc} details...')">View Document</button>
+              <button class="btn btn-sm btn-primary" onclick="window.viewDocument('${doc}', '${docType}', '${productInfo.product}', '${productInfo.sku}', ${productInfo.qty})">
+                <i class="bi bi-eye me-1"></i>View Document
+              </button>
             </td>
           </tr>
-        `).join('') : '<tr><td colspan="5" class="text-center text-muted py-3">No linked documents found</td></tr>';
+        `;
+        }).join('');
         
         const docsContent = `
           <div class="mb-3">
@@ -418,6 +861,124 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             <tbody>${docsHTML}</tbody>
           </table>
         `;
+        
+        // Ensure the viewDocument function is available
+        if (!window.viewDocument) {
+          window.viewDocument = (docId, docType, productName, sku, qty) => {
+            const currentDate = new Date().toLocaleDateString();
+            const currentDateTime = new Date().toLocaleString();
+            const expectedDateTO = new Date(Date.now() + 2*24*60*60*1000).toLocaleDateString();
+            const expectedDatePO = new Date(Date.now() + 5*24*60*60*1000).toLocaleDateString();
+            
+            const toSpecific = `
+                <div class="mb-4">
+                  <h5 class="fw-bold mb-3">Transfer Information</h5>
+                  <div class="row">
+                    <div class="col-6">
+                      <p><strong>From Store:</strong> Central Warehouse</p>
+                      <p><strong>To Store:</strong> Store Location TBD</p>
+                    </div>
+                    <div class="col-6">
+                      <p><strong>Priority:</strong> High</p>
+                      <p><strong>Expected Date:</strong> ${expectedDateTO}</p>
+                    </div>
+                  </div>
+                </div>
+            `;
+            
+            const poSpecific = `
+                <div class="mb-4">
+                  <h5 class="fw-bold mb-3">Purchase Order Information</h5>
+                  <div class="row">
+                    <div class="col-6">
+                      <p><strong>Vendor:</strong> Distributor Name TBD</p>
+                      <p><strong>Payment Terms:</strong> Net 30</p>
+                    </div>
+                    <div class="col-6">
+                      <p><strong>Delivery Date:</strong> ${expectedDatePO}</p>
+                      <p><strong>PO Type:</strong> Standard</p>
+                    </div>
+                  </div>
+                </div>
+            `;
+            
+            const documentContent = `
+              <div class="document-view" style="background: white; padding: 40px; font-family: 'Courier New', monospace;">
+                <style>
+                  @media print {
+                    .no-print { display: none !important; }
+                    .document-view { padding: 20px !important; }
+                  }
+                </style>
+                
+                <div class="text-center mb-4 pb-3" style="border-bottom: 2px solid #000;">
+                  <h3 class="fw-bold mb-0">MedPlus Pharmacy</h3>
+                  <p class="mb-0 small">Back Order Fulfillment System</p>
+                </div>
+                
+                <div class="mb-4">
+                  <h4 class="fw-bold">${docType}</h4>
+                  <div class="row">
+                    <div class="col-6">
+                      <strong>Document ID:</strong> ${docId}
+                    </div>
+                    <div class="col-6 text-end">
+                      <strong>Date:</strong> ${currentDate}
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="mb-4">
+                  <h5 class="fw-bold mb-3">Order Details</h5>
+                  <table class="table table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>${productName}</td>
+                        <td>${sku}</td>
+                        <td>${qty}</td>
+                        <td><span class="badge bg-warning">Pending</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                ${docType === 'Transfer Order' ? toSpecific : poSpecific}
+                
+                <div class="mt-5 pt-3" style="border-top: 1px solid #ccc;">
+                  <div class="row">
+                    <div class="col-6">
+                      <p class="small mb-0"><strong>Prepared By:</strong> System Auto-Generated</p>
+                      <p class="small mb-0"><strong>Date:</strong> ${currentDateTime}</p>
+                    </div>
+                    <div class="col-6 text-end">
+                      <p class="small mb-0"><strong>Document Status:</strong> Draft</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="text-center mt-4 no-print">
+                  <button class="btn btn-primary btn-lg" onclick="window.print()">
+                    <i class="bi bi-printer me-2"></i>Print Document
+                  </button>
+                  <button class="btn btn-secondary btn-lg ms-2" onclick="window.location.reload()">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                  </button>
+                </div>
+              </div>
+            `;
+            
+            onOpenModal(docType + ': ' + docId, documentContent, 'modal-xl');
+          };
+        }
+        
         onOpenModal(`Linked Documents - ${order.id}`, docsContent, 'modal-xl');
         break;
         
@@ -430,7 +991,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               <div class="row">
                 <div class="col-6"><strong>Customer:</strong> ${order.customer}</div>
                 <div class="col-6"><strong>Status:</strong> <span class="badge ${getStatusBadgeClass(status)}">${status}</span></div>
-                <div class="col-6"><strong>Total Items:</strong> ${order.totalItems}</div>
+                <div class="col-6"><strong>Total Items:</strong> ${order.totalItems || order.items?.length || 1}</div>
                 <div class="col-6"><strong>Qty Pending:</strong> ${order.items ? order.items.reduce((sum, item) => sum + item.qtyPending, 0) : order.qtyPending || 0}</div>
               </div>
             </div>
@@ -449,7 +1010,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   <input class="form-check-input me-2" type="radio" name="processOption" value="create_po">
                   <div>
                     <div class="fw-medium">Create Purchase Order (PO)</div>
-                   
                     <small class="text-muted">Source from distributor/vendor</small>
                   </div>
                 </label>
@@ -465,7 +1025,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
             <div class="mb-3">
               <label class="form-label fw-medium">Priority Level</label>
-              <select class="form-select">
+              <select class="form-select" id="priorityLevel">
                 <option value="normal">Normal</option>
                 <option value="high">High Priority</option>
                 <option value="urgent">Urgent</option>
@@ -474,14 +1034,55 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
             <div class="mb-3">
               <label class="form-label fw-medium">Processing Notes</label>
-              <textarea class="form-control" rows="2" placeholder="Optional notes for processing team..."></textarea>
+              <textarea class="form-control" id="processingNotes" rows="2" placeholder="Optional notes for processing team..."></textarea>
             </div>
           </div>
           <div class="d-flex justify-content-end gap-2">
             <button class="btn btn-secondary" onclick="document.querySelector('.modal .btn-close').click()">Cancel</button>
-            <button class="btn btn-success" onclick="alert('Request processed successfully. TO/PO will be created.'); document.querySelector('.modal .btn-close').click();">Process Request</button>
+            <button class="btn btn-success" onclick="window.processOrderRequest('${order.id}')">Process Request</button>
           </div>
         `;
+        
+        // Create global function
+        window.processOrderRequest = (orderId) => {
+          const processOption = document.querySelector('input[name="processOption"]:checked')?.value || 'auto_source';
+          const priority = document.getElementById('priorityLevel')?.value || 'normal';
+          
+          setWebOrders(prevOrders => {
+            return prevOrders.map(o => {
+              if (o.id === orderId) {
+                // Update all items in the order
+                const updatedItems = o.items.map(item => {
+                  if (item.qtyPending > 0) {
+                    const newDoc = processOption === 'create_po' ? 
+                      `PO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}` :
+                      `TO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+                    
+                    return {
+                      ...item,
+                      linkedDocs: [...(item.linkedDocs || []), newDoc],
+                      status: 'Partially Fulfilled',
+                      source: processOption === 'create_po' ? 'Distributor (PO)' : 'Store (TO)'
+                    };
+                  }
+                  return item;
+                });
+                
+                return {
+                  ...o,
+                  items: updatedItems,
+                  overallStatus: 'Partially Fulfilled',
+                  status: 'Partially Fulfilled'
+                };
+              }
+              return o;
+            });
+          });
+          
+          onShowToast(`✅ Request processed successfully for ${orderId}\n📄 ${processOption === 'create_po' ? 'Purchase Orders' : 'Transfer Orders'} created`);
+          document.querySelector('.modal .btn-close').click();
+        };
+        
         onOpenModal('Process Stock Request', processContent, 'modal-lg');
         break;
         
@@ -507,7 +1108,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
             <div class="mb-3">
               <label class="form-label fw-medium">Preferred Source (if reassigning)</label>
-              <select class="form-select">
+              <select class="form-select" id="preferredSource">
                 <option value="">Auto-Select</option>
                 <option value="DIST-MP-001">DIST-MP-001 - MedPlus Distributor 1</option>
                 <option value="DIST-MP-002">DIST-MP-002 - MedPlus Distributor 2</option>
@@ -519,7 +1120,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
             <div class="mb-3">
               <label class="form-label fw-medium">Reason for Rejection/Reassignment</label>
-              <textarea class="form-control" rows="3" placeholder="Please provide detailed reason..." required></textarea>
+              <textarea class="form-control" id="rejectReason" rows="3" placeholder="Please provide detailed reason..." required></textarea>
             </div>
 
             <div class="mb-3">
@@ -533,9 +1134,48 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           </div>
           <div class="d-flex justify-content-end gap-2">
             <button class="btn btn-secondary" onclick="document.querySelector('.modal .btn-close').click()">Cancel</button>
-            <button class="btn btn-warning" onclick="alert('Order reassigned successfully'); document.querySelector('.modal .btn-close').click();">Confirm Action</button>
+            <button class="btn btn-warning" onclick="window.rejectReassignOrder('${order.id}')">Confirm Action</button>
           </div>
         `;
+        
+        window.rejectReassignOrder = (orderId) => {
+          const actionType = document.getElementById('rejectActionType')?.value;
+          const reason = document.getElementById('rejectReason')?.value;
+          
+          if (!reason) {
+            alert('Please provide a reason');
+            return;
+          }
+          
+          setWebOrders(prevOrders => {
+            return prevOrders.map(o => {
+              if (o.id === orderId) {
+                let newStatus = o.overallStatus || o.status;
+                let remarks = reason;
+                
+                if (actionType?.includes('reassign')) {
+                  newStatus = 'Pending Sourcing';
+                  remarks = `Reassigned: ${reason}`;
+                } else if (actionType?.includes('reject')) {
+                  newStatus = 'Exception';
+                  remarks = `Rejected: ${reason}`;
+                }
+                
+                return {
+                  ...o,
+                  overallStatus: newStatus,
+                  status: newStatus,
+                  remarks: remarks
+                };
+              }
+              return o;
+            });
+          });
+          
+          onShowToast(`✅ Order ${orderId} ${actionType?.includes('reassign') ? 'reassigned' : 'rejected'} successfully`);
+          document.querySelector('.modal .btn-close').click();
+        };
+        
         onOpenModal('Reject / Reassign Order', rejectContent, 'modal-lg');
         break;
         
@@ -563,19 +1203,55 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
             <div class="mb-3">
               <label class="form-label fw-medium">Vendor/Supplier (Optional)</label>
-              <input type="text" class="form-control" placeholder="Enter vendor name if known">
+              <input type="text" class="form-control" id="marketVendor" placeholder="Enter vendor name if known">
             </div>
 
             <div class="mb-3">
               <label class="form-label fw-medium">Remarks</label>
-              <textarea class="form-control" rows="3" placeholder="Provide details about market sourcing attempts..." required></textarea>
+              <textarea class="form-control" id="marketRemarks" rows="3" placeholder="Provide details about market sourcing attempts..." required></textarea>
             </div>
           </div>
           <div class="d-flex justify-content-end gap-2">
             <button class="btn btn-secondary" onclick="document.querySelector('.modal .btn-close').click()">Cancel</button>
-            <button class="btn btn-primary" onclick="alert('Order marked for market purchase'); document.querySelector('.modal .btn-close').click();">Confirm</button>
+            <button class="btn btn-primary" onclick="window.markForMarketPurchase('${order.id}')">Confirm</button>
           </div>
         `;
+        
+        window.markForMarketPurchase = (orderId) => {
+          const marketStatus = document.getElementById('marketStatus')?.value;
+          const remarks = document.getElementById('marketRemarks')?.value;
+          const vendor = document.getElementById('marketVendor')?.value;
+          
+          if (!remarks) {
+            alert('Please provide remarks');
+            return;
+          }
+          
+          setWebOrders(prevOrders => {
+            return prevOrders.map(o => {
+              if (o.id === orderId) {
+                const updatedItems = o.items?.map(item => ({
+                  ...item,
+                  source: 'Market Purchase' + (vendor ? ` - ${vendor}` : ''),
+                  remarks: remarks
+                })) || [];
+                
+                return {
+                  ...o,
+                  items: updatedItems,
+                  overallStatus: marketStatus === 'unavailable' ? 'Exception' : 'Pending Sourcing',
+                  status: marketStatus === 'unavailable' ? 'Exception' : 'Pending Sourcing',
+                  remarks: `Market Purchase: ${remarks}`
+                };
+              }
+              return o;
+            });
+          });
+          
+          onShowToast(`✅ Order ${orderId} marked for market purchase`);
+          document.querySelector('.modal .btn-close').click();
+        };
+        
         onOpenModal('Mark for Market Purchase', marketContent, 'modal-lg');
         break;
         
@@ -612,7 +1288,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
             <div class="mb-3">
               <label class="form-label fw-medium">Closure Reason</label>
-              <select class="form-select mb-2">
+              <select class="form-select mb-2" id="closureReason">
                 <option value="">Select reason...</option>
                 <option value="manual_fulfilled">Manually Fulfilled Outside System</option>
                 <option value="customer_cancel">Customer Cancelled</option>
@@ -624,17 +1300,17 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
             <div class="mb-3">
               <label class="form-label fw-medium">Fulfillment Details</label>
-              <textarea class="form-control mb-2" rows="2" placeholder="How was this order fulfilled? (e.g., which store, direct purchase, etc.)"></textarea>
+              <textarea class="form-control mb-2" id="fulfillmentDetails" rows="2" placeholder="How was this order fulfilled? (e.g., which store, direct purchase, etc.)"></textarea>
             </div>
 
             <div class="mb-3">
               <label class="form-label fw-medium">Supporting Document Reference (optional)</label>
-              <input type="text" class="form-control" placeholder="Invoice number, manual TO/PO reference, etc.">
+              <input type="text" class="form-control" id="supportingDoc" placeholder="Invoice number, manual TO/PO reference, etc.">
             </div>
 
             <div class="mb-3">
               <label class="form-label fw-medium">Additional Notes</label>
-              <textarea class="form-control" rows="2" placeholder="Any additional information..."></textarea>
+              <textarea class="form-control" id="additionalNotes" rows="2" placeholder="Any additional information..."></textarea>
             </div>
 
             <div class="form-check mb-3">
@@ -646,9 +1322,51 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           </div>
           <div class="d-flex justify-content-end gap-2">
             <button class="btn btn-secondary" onclick="document.querySelector('.modal .btn-close').click()">Cancel</button>
-            <button class="btn btn-danger" onclick="if(document.getElementById('confirmManualClosure').checked) { alert('Order marked as manually closed'); document.querySelector('.modal .btn-close').click(); } else { alert('Please confirm by checking the checkbox'); }">Close Order Manually</button>
+            <button class="btn btn-danger" onclick="window.manualCloseOrder('${order.id}')">Close Order Manually</button>
           </div>
         `;
+        
+        window.manualCloseOrder = (orderId) => {
+          if (!document.getElementById('confirmManualClosure')?.checked) {
+            alert('Please confirm by checking the checkbox');
+            return;
+          }
+          
+          const reason = document.getElementById('closureReason')?.value;
+          const details = document.getElementById('fulfillmentDetails')?.value;
+          
+          if (!reason || !details) {
+            alert('Please fill in all required fields');
+            return;
+          }
+          
+          setWebOrders(prevOrders => {
+            return prevOrders.map(o => {
+              if (o.id === orderId) {
+                const updatedItems = o.items?.map(item => ({
+                  ...item,
+                  status: 'Completed',
+                  qtyFulfilled: item.qty,
+                  qtyPending: 0,
+                  remarks: `Manually closed: ${details}`
+                })) || [];
+                
+                return {
+                  ...o,
+                  items: updatedItems,
+                  overallStatus: 'Completed',
+                  status: 'Completed',
+                  remarks: `Manual Closure - ${reason}: ${details}`
+                };
+              }
+              return o;
+            });
+          });
+          
+          onShowToast(`✅ Order ${orderId} manually closed`);
+          document.querySelector('.modal .btn-close').click();
+        };
+        
         onOpenModal('Manual Closure', closureContent, 'modal-lg');
         break;
         
@@ -663,258 +1381,118 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       
       {/* Debug indicator for highlighted order */}
       {highlightedWebOrder && (
-        <div className="alert alert-danger mb-3" role="alert">
+        <div className="alert alert-info mb-3" role="alert">
           <strong>🔍 Highlighting Web Order:</strong> {highlightedWebOrder}
-        </div>
-      )}
-      
-      {/* KPI View Toggle */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="mb-0 fw-bold text-secondary">Key Performance Indicators</h5>
-        <div className="btn-group btn-group-sm" role="group">
-          <button
-            type="button"
-            className={`btn ${kpiViewMode === 'wrap' ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setKpiViewMode('wrap')}
-          >
-            <i className="bi bi-grid-3x3-gap me-1"></i>
-            Wrap
-          </button>
-          <button
-            type="button"
-            className={`btn ${kpiViewMode === 'slider' ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setKpiViewMode('slider')}
-          >
-            <i className="bi bi-arrow-left-right me-1"></i>
-            Slider
-          </button>
-        </div>
-      </div>
-
-      {/* KPIs - Wrap Mode */}
-      {kpiViewMode === 'wrap' && (
-        <Row className="g-3 mb-4">
-          <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Total Back Orders</div>
-                <div className="kpi-value">{kpis.total}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Pending Sourcing</div>
-                <div className="kpi-value">{kpis.pending}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Partially Fulfilled</div>
-                <div className="kpi-value">{kpis.partial}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Completed</div>
-                <div className="kpi-value">{kpis.completed}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Exceptions</div>
-                <div className="kpi-value">{kpis.exception}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Fulfilment Rate</div>
-                <div className="kpi-value">{kpis.rate}%</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Avg. Fulfilment Time</div>
-                <div className="kpi-value">{kpis.avgTime} Days</div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      )}
-
-      {/* KPIs - Slider Mode */}
-      {kpiViewMode === 'slider' && (
-        <div className="mb-4 kpi-slider-container">
-          <Carousel 
-            interval={3000}
-            indicators={true}
-            controls={false}
-            pause="hover"
-            activeIndex={carouselIndex}
-            onSelect={(selectedIndex) => setCarouselIndex(selectedIndex)}
-            touch={false}
-            slide={true}
-          >
-            <Carousel.Item>
-              <Row className="g-3 px-2 pb-4 pt-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Total Back Orders</div>
-                      <div className="kpi-value">{kpis.total}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Pending Sourcing</div>
-                      <div className="kpi-value">{kpis.pending}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Partially Fulfilled</div>
-                      <div className="kpi-value">{kpis.partial}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Carousel.Item>
-            <Carousel.Item>
-              <Row className="g-3 px-2 pb-4 pt-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Completed</div>
-                      <div className="kpi-value">{kpis.completed}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Exceptions</div>
-                      <div className="kpi-value">{kpis.exception}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Fulfilment Rate</div>
-                      <div className="kpi-value">{kpis.rate}%</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Carousel.Item>
-            <Carousel.Item>
-              <Row className="g-3 px-2 pb-4 pt-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Avg. Fulfilment Time</div>
-                      <div className="kpi-value">{kpis.avgTime} Days</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Carousel.Item>
-          </Carousel>
         </div>
       )}
 
       {/* Table */}
       <Card>
         <Card.Body>
-          {/* Filters */}
-          <Row className="g-3 mb-3">
-            <Col xs={12}>
-              <h6 className="mb-0 fw-medium text-secondary">Filters</h6>
-            </Col>
-            <Col xs={12} md={6} lg={4}>
-              <Form.Label className="small text-muted mb-1">Search</Form.Label>
-              <Form.Control
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by Order ID, Customer, Product, or SKU..."
-              />
-            </Col>
-            <Col xs={12} sm={6} md={6} lg={2}>
-              <Form.Label className="small text-muted mb-1">Order Start Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={startDateFilter}
-                onChange={(e) => setStartDateFilter(e.target.value)}
-              />
-            </Col>
-            <Col xs={12} sm={6} md={6} lg={2}>
-              <Form.Label className="small text-muted mb-1">Order End Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={endDateFilter}
-                onChange={(e) => setEndDateFilter(e.target.value)}
-              />
-            </Col>
-            <Col xs={12} sm={6} md={4} lg={2}>
-              <Form.Label className="small text-muted mb-1">Store / Distributor</Form.Label>
-              <Form.Select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-              >
-                <option value="All">All Sources</option>
-                <option value="Store (TO)">Store (TO)</option>
-                <option value="Distributor (PO)">Distributor (PO)</option>
-                <option value="Pending">Pending</option>
-                <option value="Manual Purchase">Manual Purchase</option>
-                <option value="Unavailable">Unavailable</option>
-              </Form.Select>
-            </Col>
-            <Col xs={12} sm={6} md={4} lg={2}>
-              <Form.Label className="small text-muted mb-1">Status</Form.Label>
-              <Form.Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Pending Sourcing">Pending Sourcing</option>
-                <option value="TO Created">TO Created</option>
-                <option value="PO Created">PO Created</option>
-                <option value="Partially Fulfilled">Partially Fulfilled</option>
-                <option value="Completed">Completed</option>
-                <option value="Market Purchase">Market Purchase</option>
-                <option value="Exception">Exception</option>
-                <option value="Rejected">Rejected</option>
-              </Form.Select>
-            </Col>
-            <Col xs={6} sm={4} md={2} lg={2} xl={1} className="d-flex align-items-end">
-              <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
-                Clear
-              </Button>
-            </Col>
-          </Row>
-
-          {/* Table Actions */}
-          <div className="d-flex justify-content-end mb-3">
-            <Button variant="success" onClick={handleDownload}>
-              Download Excel
+          {/* Filter Toggle Button */}
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <Button 
+              variant="outline-primary" 
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="d-flex align-items-center gap-2"
+            >
+              <i className={`bi bi-funnel${showFilters ? '-fill' : ''}`}></i>
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+              <i className={`bi bi-chevron-${showFilters ? 'up' : 'down'}`}></i>
+            </Button>
+            <Button variant="success" onClick={handleDownload} size="sm">
+              <i className="bi bi-download me-2"></i>Download Excel
             </Button>
           </div>
+
+          {/* Filters - Collapsible */}
+          {showFilters && (
+            <Row className="g-3 mb-3 animate__animated animate__fadeInDown" style={{ 
+              animation: 'slideDown 0.3s ease-out',
+              borderBottom: '1px solid #dee2e6',
+              paddingBottom: '1rem'
+            }}>
+              <Col xs={12}>
+                <h6 className="mb-0 fw-medium text-secondary">Filters</h6>
+              </Col>
+              <Col xs={12} md={6} lg={4}>
+                <Form.Label className="small text-muted mb-1">Search</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by Order ID, Customer, Product, or SKU..."
+                />
+              </Col>
+              <Col xs={12} sm={6} md={6} lg={2}>
+                <Form.Label className="small text-muted mb-1">Order Start Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                />
+              </Col>
+              <Col xs={12} sm={6} md={6} lg={2}>
+                <Form.Label className="small text-muted mb-1">Order End Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                />
+              </Col>
+              <Col xs={12} sm={6} md={4} lg={2}>
+                <Form.Label className="small text-muted mb-1">Store / Distributor</Form.Label>
+                <Form.Select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                >
+                  <option value="All">All Sources</option>
+                  <option value="Store (TO)">Store (TO)</option>
+                  <option value="Distributor (PO)">Distributor (PO)</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Manual Purchase">Manual Purchase</option>
+                  <option value="Unavailable">Unavailable</option>
+                </Form.Select>
+              </Col>
+              <Col xs={12} sm={6} md={4} lg={2}>
+                <Form.Label className="small text-muted mb-1">Status</Form.Label>
+                <Form.Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Pending Sourcing">Pending Sourcing</option>
+                  <option value="TO Created">TO Created</option>
+                  <option value="PO Created">PO Created</option>
+                  <option value="Partially Fulfilled">Partially Fulfilled</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Market Purchase">Market Purchase</option>
+                  <option value="Exception">Exception</option>
+                  <option value="Rejected">Rejected</option>
+                </Form.Select>
+              </Col>
+              <Col xs={6} sm={4} md={2} lg={2} xl={1} className="d-flex align-items-end">
+                <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
+                  Clear
+                </Button>
+              </Col>
+            </Row>
+          )}
+
+          {/* Table Actions - Removed Download button from here */}
+          <style>{`
+            @keyframes slideDown {
+              from {
+                opacity: 0;
+                transform: translateY(-20px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}</style>
 
           {/* Table */}
           <div className="table-responsive" ref={tableRef} style={{ minWidth: '900px' }}>
@@ -940,13 +1518,25 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   </tr>
                 ) : (
                   filteredOrders.map((order, idx) => {
-                    // Use new data structure if available, fallback to old structure
+
+                    // Aggregate status for multi-product orders
+                    function getAggregateStatus(items) {
+                      if (!items || items.length === 0) return order.status || 'Unknown';
+                      const statuses = items.map(i => i.status);
+                      if (statuses.every(s => s === 'Completed')) return 'Completed';
+                      if (statuses.some(s => s === 'Pending Sourcing')) return 'Pending Sourcing';
+                      if (statuses.some(s => s === 'Exception')) return 'Exception';
+                      if (statuses.some(s => s === 'Partially Fulfilled')) return 'Partially Fulfilled';
+                      if (statuses.some(s => s === 'Rejected')) return 'Rejected';
+                      return statuses[0] || 'Unknown';
+                    }
+
                     const displayData = order.items ? {
                       product: order.items[0]?.product || '-',
                       sku: order.items[0]?.sku || '-',
                       qty: order.items.reduce((sum, item) => sum + item.qty, 0),
                       qtyFulfilled: order.items.reduce((sum, item) => sum + item.qtyFulfilled, 0),
-                      status: order.overallStatus,
+                      status: order.overallStatus || getAggregateStatus(order.items),
                       source: order.items.map(item => item.source).filter((v, i, a) => a.indexOf(v) === i).join(', '),
                       linkedDoc: order.items.flatMap(item => item.linkedDocs).join(', ') || '-'
                     } : {

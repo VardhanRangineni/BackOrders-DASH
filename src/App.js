@@ -24,7 +24,7 @@ function App() {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
-  const [modalContent, setModalContent] = useState('');
+  const [modalContent, setModalContent] = useState(null);
   const [modalWidth, setModalWidth] = useState('sm:max-w-2xl');
   
   // Toast state
@@ -143,7 +143,11 @@ function App() {
         title={modalTitle}
         widthClass={modalWidth}
       >
-        <div dangerouslySetInnerHTML={{ __html: modalContent }} />
+        {typeof modalContent === 'string' ? (
+          <div dangerouslySetInnerHTML={{ __html: modalContent }} />
+        ) : (
+          modalContent
+        )}
       </Modal>
 
       <Toast

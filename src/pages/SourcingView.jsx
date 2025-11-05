@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Row, Col, Card, Form, Button, Table, Carousel, Modal } from 'react-bootstrap';
-import { dateDiffInHours, exportToCSV, getStatusBadgeClass } from '../utils/utils';
+import { Row, Col, Card, Form, Button, Table, Modal, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 
 const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenModal, onNavigate, setHighlightedWebOrder, initialFilters = {}, clearFilters }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [kpiViewMode, setKpiViewMode] = useState('wrap'); // 'wrap' or 'slider'
-  const [carouselIndex, setCarouselIndex] = useState(0);
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
@@ -18,6 +16,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [chartModalData] = useState({ title: '', content: null });
   const [showRetryOnly, setShowRetryOnly] = useState(false);
   const [showMarketPurchaseOnly, setShowMarketPurchaseOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const tableRef = useRef(null);
 
   // Apply initial filters when component mounts or filters change
@@ -50,52 +49,15 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   // Set up global handler for modal links
   useEffect(() => {
     window.handleViewWebOrderFromModal = handleViewWebOrder;
+    window.openModalFromLine = (title, content, width) => {
+      onOpenModal(title, content, width);
+    };
     
     return () => {
       delete window.handleViewWebOrderFromModal;
+      delete window.openModalFromLine;
     };
-  }, [handleViewWebOrder]);
-
-
-
-  const calculateKPIs = () => {
-    const fulfilled = sourcingOrders.filter(o => o.status === 'Fulfilled');
-    const fulfilledTOs = fulfilled.filter(o => o.type === 'TO');
-    const fulfilledPOs = fulfilled.filter(o => o.type === 'PO');
-    
-    let totalHoursTO = 0;
-    fulfilledTOs.forEach(o => { totalHoursTO += dateDiffInHours(o.created, o.lastUpdated); });
-    
-    let totalHoursPO = 0;
-    fulfilledPOs.forEach(o => { totalHoursPO += dateDiffInHours(o.created, o.lastUpdated); });
-    
-    const retriedOrders = sourcingOrders.filter(o => o.retry > 0);
-    const successfulRetries = retriedOrders.filter(o => o.status === 'Fulfilled');
-    const retryRate = retriedOrders.length > 0 ? ((successfulRetries.length / retriedOrders.length) * 100).toFixed(0) : 0;
-
-    // Market Purchase Analytics
-    const marketPurchaseOrders = sourcingOrders.filter(o => o.marketPurchase === true);
-    const marketPurchaseCount = marketPurchaseOrders.length;
-    const marketPurchasePercentage = sourcingOrders.length > 0 ? ((marketPurchaseCount / sourcingOrders.length) * 100).toFixed(1) : 0;
-    const marketPurchaseFulfilled = marketPurchaseOrders.filter(o => o.status === 'Fulfilled').length;
-    const marketPurchasePending = marketPurchaseOrders.filter(o => o.status !== 'Fulfilled' && o.status !== 'Rejected').length;
-
-    return {
-      total: sourcingOrders.length,
-      pending: sourcingOrders.filter(o => o.status === 'Draft' || o.status === 'Accepted' || o.status === 'In Dispatch').length,
-      fulfilled: fulfilled.length,
-      rejected: sourcingOrders.filter(o => o.status === 'Rejected' || o.status === 'Cancelled').length,
-      avgTimeTo: fulfilledTOs.length > 0 ? (totalHoursTO / fulfilledTOs.length).toFixed(1) : 0,
-      avgTimePo: fulfilledPOs.length > 0 ? (totalHoursPO / fulfilledPOs.length).toFixed(1) : 0,
-      retryRate,
-      marketPurchaseCount,
-      marketPurchasePercentage,
-      marketPurchaseFulfilled,
-      marketPurchasePending
-    };
-  };
-
-  const kpis = calculateKPIs();
+  }, [handleViewWebOrder, onOpenModal]);
 
   // Filter orders
   const filteredOrders = sourcingOrders.filter(order => {
@@ -239,122 +201,24 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const handleViewDetails = (order) => {
     const qtyPending = order.qtyReq - order.qtyFulfilled;
     
-    // Build products table HTML
-    const productsTableHTML = order.items ? `
-      <div class="col-12 mt-4"><h5 class="text-primary fw-bold mb-3">Product Line Items</h5></div>
-      <div class="col-12">
-        <div class="table-responsive" style="max-height: 400px; overflow-x: auto; overflow-y: auto;">
-          <table class="table table-sm table-bordered" style="min-width: 1000px;">
-            <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
-              <tr>
-                <th>Line ID</th>
-                <th>Product</th>
-                <th>SKU</th>
-                <th>Qty Req.</th>
-                <th>Qty Fulfilled</th>
-                <th>Qty Pending</th>
-                <th>Status</th>
-                <th>Remarks</th>
-                <th style="min-width: 180px;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${order.items.map(item => {
-                const pending = item.qtyReq - item.qtyFulfilled;
-                return `
-                  <tr>
-                    <td>${item.lineId}</td>
-                    <td>${item.product}</td>
-                    <td><code>${item.sku}</code></td>
-                    <td class="text-end">${item.qtyReq}</td>
-                    <td class="text-end text-success fw-medium">${item.qtyFulfilled}</td>
-                    <td class="text-end ${pending > 0 ? 'text-warning fw-medium' : 'text-muted'}">${pending}</td>
-                    <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status}</span></td>
-                    <td class="small">${item.remarks || '-'}</td>
-                    <td>
-                      <select class="form-select form-select-sm" onchange="
-                        if(this.value === 'view_details') alert('Line Item Details:\\n\\nLine ID: ${item.lineId}\\nProduct: ${item.product}\\nSKU: ${item.sku}\\nQty Req: ${item.qtyReq}\\nQty Fulfilled: ${item.qtyFulfilled}\\nQty Pending: ${pending}\\nStatus: ${item.status}\\nRemarks: ${item.remarks || 'None'}');
-                        else if(this.value === 'view_linked_web_order') alert('Viewing linked Web Order for Line ${item.lineId}\\n\\nThis will show the original customer web order details.');
-                        else if(this.value === 'trigger_recheck') alert('Triggering manual recheck for ${item.product}\\n\\nSystem will re-evaluate store/distributor availability.');
-                        else if(this.value === 'add_remarks') alert('Adding remarks for Line ${item.lineId}');
-                        this.value = '';
-                      ">
-                        <option value="" selected hidden>Action</option>
-                        <option value="view_details">View Details</option>
-                        <option value="view_linked_web_order">View Linked Web Order</option>
-                        ${pending > 0 && (item.status === 'Draft' || item.status === 'Rejected') ? 
-                          '<option value="trigger_recheck">Trigger Recheck</option>' : ''}
-                        <option value="add_remarks">Add Remarks</option>
-                      </select>
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : '';
-    
-    const content = `
-      <div class="row g-3">
-        <div class="col-12"><h5 class="text-primary fw-bold mb-3">Document Information</h5></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Draft ID</div><div class="fs-6">${order.id}</div></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Order Type</div><div class="fs-6"><span class="badge ${
-          order.type === 'TO' ? 'bg-primary' : 
-          order.type === 'PO' ? 'bg-purple' : 
-          'bg-warning text-dark'
-        }">${order.type}</span>${order.marketPurchase ? ' <span class="badge bg-danger ms-1">Market Purchase</span>' : ''}</div></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">${order.type} ID</div><div class="fs-6">${order.docId || '-'}</div></div>
-        <div class="col-sm-6">
-          <div class="fw-medium text-secondary">Linked Web Order</div>
-          <div class="fs-6">
-            <a href="#" class="text-decoration-none" onclick="event.preventDefault(); window.handleViewWebOrderFromModal('${order.webOrder}');">
-              ${order.webOrder}
-            </a>
+    let content;
+    if (order.items && order.items.length > 0) {
+      content = <ProductLineItemsTable items={order.items} />;
+    } else {
+      content = (
+        <div className="mb-3">
+          <div className="fw-medium text-secondary mb-2">Product Details</div>
+          <div className="row g-2">
+            <div className="col-sm-6"><div className="text-muted small">Product</div><div>{order.product || '-'}</div></div>
+            <div className="col-sm-6"><div className="text-muted small">SKU</div><div>{order.sku || '-'}</div></div>
+            <div className="col-sm-4"><div className="text-muted small">Qty Requested</div><div>{order.qtyReq || 0}</div></div>
+            <div className="col-sm-4"><div className="text-muted small">Qty Fulfilled</div><div>{order.qtyFulfilled || 0}</div></div>
+            <div className="col-sm-4"><div className="text-muted small">Qty Pending</div><div>{qtyPending}</div></div>
           </div>
         </div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Batch ID</div><div class="fs-6"><a href="#" class="text-decoration-none">${order.batchId}</a></div></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Status</div><div class="fs-6"><span class="badge ${getStatusBadgeClass(order.status)}">${order.status}</span></div></div>
-        
-        ${order.marketPurchase ? `
-          <div class="col-12 mt-4">
-            <div class="alert alert-warning border-warning">
-              <h6 class="alert-heading fw-bold mb-2">
-                <i class="bi bi-cart-fill me-2"></i>Market Purchase Information
-              </h6>
-              <div class="row g-2">
-                <div class="col-sm-6"><strong>Vendor:</strong> ${order.vendor || 'Not assigned'}</div>
-                <div class="col-sm-6"><strong>Estimated Cost:</strong> ₹${order.estimatedCost ? order.estimatedCost.toLocaleString() : 'N/A'}</div>
-                ${order.actualCost ? `<div class="col-sm-6"><strong>Actual Cost:</strong> ₹${order.actualCost.toLocaleString()}</div>` : ''}
-                <div class="col-12 mt-2"><small class="text-muted"><em>This order was escalated to market purchase after regular sourcing channels (warehouse, stores, distributors) were unable to fulfill.</em></small></div>
-              </div>
-            </div>
-          </div>
-        ` : ''}
-        
-        <div class="col-12 mt-4"><h5 class="text-primary fw-bold mb-3">Location Details</h5></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Source Location</div><div class="fs-6">${order.source}</div></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Destination Location</div><div class="fs-6">${order.destination}</div></div>
-        
-        <div class="col-12 mt-4"><h5 class="text-primary fw-bold mb-3">Quantity Summary</h5></div>
-        <div class="col-sm-4"><div class="fw-medium text-secondary">Total Qty Requested</div><div class="fs-5 fw-bold text-primary">${order.qtyReq}</div></div>
-        <div class="col-sm-4"><div class="fw-medium text-secondary">Total Qty Fulfilled</div><div class="fs-5 fw-bold text-success">${order.qtyFulfilled}</div></div>
-        <div class="col-sm-4"><div class="fw-medium text-secondary">Total Qty Pending</div><div class="fs-5 fw-bold ${qtyPending > 0 ? 'text-warning' : 'text-muted'}">${qtyPending}</div></div>
-        
-        ${productsTableHTML}
-        
-        <div class="col-12 mt-4"><h5 class="text-primary fw-bold mb-3">Tracking & Audit Information</h5></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Retry Count</div><div class="fs-6">${order.retry > 0 ? `<span class="badge bg-warning text-dark">${order.retry}</span> <span class="text-warning">(Retry Triggered)</span>` : '<span class="text-muted">0</span>'}</div></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Created Date/Time</div><div class="fs-6">${order.created}</div></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Created By</div><div class="fs-6">${order.createdBy}</div></div>
-        <div class="col-sm-6"><div class="fw-medium text-secondary">Last Actioned By</div><div class="fs-6">${order.lastActionedBy}</div></div>
-        
-        ${order.remarks ? `<div class="col-12 mt-4"><h5 class="text-primary fw-bold mb-3">Remarks / Reason</h5></div><div class="col-12"><div class="alert alert-info mb-0">${order.remarks}</div></div>` : ''}
-      </div>
-    `;
-    
-    onOpenModal(`${order.type} Details: ${order.id}`, content, 'modal-xl');
+      );
+    }
+    onOpenModal(`Sourcing Details: ${order.id}`, content, 'modal-xl');
   };
 
   const handleViewBatchLog = (batchId) => {
@@ -466,360 +330,168 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         Real-time view of all Transfer Orders (TO), Purchase Orders (PO), and Market Purchase orders with complete traceability, fulfilment progress, and retry audit. 
         Products not available in warehouse, stores, or distributors are automatically escalated to market purchase.
       </p>
-      
-      {/* KPI View Toggle */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="mb-0 fw-bold text-secondary">Key Performance Indicators</h5>
-        <div className="btn-group btn-group-sm" role="group">
-          <button
-            type="button"
-            className={`btn ${kpiViewMode === 'wrap' ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setKpiViewMode('wrap')}
-          >
-            <i className="bi bi-grid-3x3-gap me-1"></i>
-            Wrap
-          </button>
-          <button
-            type="button"
-            className={`btn ${kpiViewMode === 'slider' ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setKpiViewMode('slider')}
-          >
-            <i className="bi bi-arrow-left-right me-1"></i>
-            Slider
-          </button>
-        </div>
-      </div>
-
-      {/* KPIs - Wrap Mode */}
-      {kpiViewMode === 'wrap' && (
-        <Row className="g-3 mb-4">
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Total Sourcing</div>
-                <div className="kpi-value">{kpis.total}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Pending (Draft/Accepted)</div>
-                <div className="kpi-value">{kpis.pending}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Fulfilled</div>
-                <div className="kpi-value">{kpis.fulfilled}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Rejected / Cancelled</div>
-                <div className="kpi-value">{kpis.rejected}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Avg. Fulfil Time (Store)</div>
-                <div className="kpi-value">{kpis.avgTimeTo} H</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Avg. Fulfil Time (Dist.)</div>
-                <div className="kpi-value">{kpis.avgTimePo} H</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Retry Success Rate</div>
-                <div className="kpi-value">{kpis.retryRate}%</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Market Purchase Orders</div>
-                <div className="kpi-value">{kpis.marketPurchaseCount}</div>
-                <div className="small text-muted mt-1">{kpis.marketPurchasePercentage}% of total</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Market Purchase Fulfilled</div>
-                <div className="kpi-value">{kpis.marketPurchaseFulfilled}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} lg={3}>
-            <Card className="kpi-card h-100">
-              <Card.Body>
-                <div className="kpi-title">Market Purchase Pending</div>
-                <div className="kpi-value">{kpis.marketPurchasePending}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      )}
-
-      {/* KPIs - Slider Mode */}
-      {kpiViewMode === 'slider' && (
-        <div className="mb-4 kpi-slider-container">
-          <Carousel 
-            interval={3000}
-            indicators={true}
-            controls={false}
-            pause="hover"
-            activeIndex={carouselIndex}
-            onSelect={(selectedIndex) => setCarouselIndex(selectedIndex)}
-            touch={false}
-            slide={true}
-          >
-            <Carousel.Item>
-              <Row className="g-3 px-2 pb-4 pt-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Total Sourcing</div>
-                      <div className="kpi-value">{kpis.total}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Pending (Draft/Accepted)</div>
-                      <div className="kpi-value">{kpis.pending}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Fulfilled</div>
-                      <div className="kpi-value">{kpis.fulfilled}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Carousel.Item>
-            <Carousel.Item>
-              <Row className="g-3 px-2 pb-4 pt-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Rejected / Cancelled</div>
-                      <div className="kpi-value">{kpis.rejected}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Avg. Fulfil Time (Store)</div>
-                      <div className="kpi-value">{kpis.avgTimeTo} H</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Avg. Fulfil Time (Dist.)</div>
-                      <div className="kpi-value">{kpis.avgTimePo} H</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Carousel.Item>
-            <Carousel.Item>
-              <Row className="g-3 px-2 pb-4 pt-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Retry Success Rate</div>
-                      <div className="kpi-value">{kpis.retryRate}%</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Market Purchase Orders</div>
-                      <div className="kpi-value">{kpis.marketPurchaseCount}</div>
-                      <div className="small text-muted mt-1">{kpis.marketPurchasePercentage}% of total</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Market Purchase Fulfilled</div>
-                      <div className="kpi-value">{kpis.marketPurchaseFulfilled}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Carousel.Item>
-            <Carousel.Item>
-              <Row className="g-3 px-2 pb-4 pt-2">
-                <Col xs={12} sm={6} md={4}>
-                  <Card className="kpi-card h-100">
-                    <Card.Body>
-                      <div className="kpi-title">Market Purchase Pending</div>
-                      <div className="kpi-value">{kpis.marketPurchasePending}</div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Carousel.Item>
-          </Carousel>
-        </div>
-      )}
 
       {/* Table */}
       <Card>
         <Card.Body>
-          {/* Filters */}
-          <Row className="g-3 mb-3">
-            <Col xs={12}>
-              <h6 className="mb-0 fw-medium text-secondary">Filters & Search</h6>
-            </Col>
-            <Col xs={12} md={6} lg={4} xl={3}>
-              <Form.Label className="small text-muted mb-1">Search</Form.Label>
-              <Form.Control
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by ID, Web Order, Source..."
-              />
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-              <Form.Label className="small text-muted mb-1">Start Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={startDateFilter}
-                onChange={(e) => setStartDateFilter(e.target.value)}
-              />
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-              <Form.Label className="small text-muted mb-1">End Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={endDateFilter}
-                onChange={(e) => setEndDateFilter(e.target.value)}
-              />
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-              <Form.Label className="small text-muted mb-1">Batch ID</Form.Label>
-              <Form.Control
-                type="text"
-                value={batchFilter}
-                onChange={(e) => setBatchFilter(e.target.value)}
-                placeholder="Batch ID"
-              />
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={1}>
-              <Form.Label className="small text-muted mb-1">SKU</Form.Label>
-              <Form.Control
-                type="text"
-                value={skuFilter}
-                onChange={(e) => setSkuFilter(e.target.value)}
-                placeholder="SKU"
-              />
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-              <Form.Label className="small text-muted mb-1">Source Type</Form.Label>
-              <Form.Select
-                value={sourceTypeFilter}
-                onChange={(e) => setSourceTypeFilter(e.target.value)}
-              >
-                <option value="All">All Sources</option>
-                <option value="Store">Store (TO)</option>
-                <option value="Distributor">Distributor (PO)</option>
-              </Form.Select>
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-              <Form.Label className="small text-muted mb-1">Order Type</Form.Label>
-              <Form.Select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-              >
-                <option value="All">All Types</option>
-                <option value="TO">TO</option>
-                <option value="PO">PO</option>
-                <option value="Market Purchase">Market Purchase</option>
-              </Form.Select>
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-              <Form.Label className="small text-muted mb-1">Status</Form.Label>
-              <Form.Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="All">All</option>
-                <option value="Draft">Draft</option>
-                <option value="Accepted">Accepted</option>
-                <option value="In Dispatch">In Dispatch</option>
-                <option value="Fulfilled">Fulfilled</option>
-                <option value="Rejected">Rejected</option>
-                <option value="Cancelled">Cancelled</option>
-                <option value="Partial">Partial</option>
-                <option value="Approved">Approved</option>
-                <option value="Expired">Expired</option>
-              </Form.Select>
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
-              <Button
-                variant={showRetryOnly ? "primary" : "outline-secondary"}
-                onClick={() => setShowRetryOnly(!showRetryOnly)}
-                className="w-100"
-                size="sm"
-              >
-                {showRetryOnly ? "✓ " : ""}Re-try Orders
-              </Button>
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
-              <Button
-                variant={showMarketPurchaseOnly ? "primary" : "outline-secondary"}
-                onClick={() => setShowMarketPurchaseOnly(!showMarketPurchaseOnly)}
-                className="w-100"
-                size="sm"
-              >
-                {showMarketPurchaseOnly ? "✓ " : ""}Market Purchase
-              </Button>
-            </Col>
-            <Col xs={6} sm={6} md={3} lg={2} xl={1} className="d-flex align-items-end">
-              <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
-                Clear
-              </Button>
-            </Col>
-          </Row>
-
-          {/* Table Actions */}
-          <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
-            <div className="text-muted small">
-              Showing {filteredOrders.length} of {sourcingOrders.length} records
-            </div>
-            <Button variant="success" onClick={handleDownload} size="sm">
-              <i className="bi bi-download me-2"></i>
-              Download Excel
+          {/* Filter Toggle Button */}
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <Button 
+              variant="outline-primary" 
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="d-flex align-items-center gap-2"
+            >
+              <i className={`bi bi-funnel${showFilters ? '-fill' : ''}`}></i>
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+              <i className={`bi bi-chevron-${showFilters ? 'up' : 'down'}`}></i>
             </Button>
+            <div className="d-flex align-items-center gap-2">
+              <div className="text-muted small">
+                Showing {filteredOrders.length} of {sourcingOrders.length} records
+              </div>
+              <Button variant="success" onClick={handleDownload} size="sm">
+                <i className="bi bi-download me-2"></i>
+                Download Excel
+              </Button>
+            </div>
           </div>
+
+          {/* Filters - Collapsible */}
+          {showFilters && (
+            <Row className="g-3 mb-3" style={{ 
+              animation: 'slideDown 0.3s ease-out',
+              borderBottom: '1px solid #dee2e6',
+              paddingBottom: '1rem'
+            }}>
+              <Col xs={12}>
+                <h6 className="mb-0 fw-medium text-secondary">Filters & Search</h6>
+              </Col>
+              <Col xs={12} md={6} lg={4} xl={3}>
+                <Form.Label className="small text-muted mb-1">Search</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by ID, Web Order, Source..."
+                />
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+                <Form.Label className="small text-muted mb-1">Start Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                />
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+                <Form.Label className="small text-muted mb-1">End Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                />
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+                <Form.Label className="small text-muted mb-1">Batch ID</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={batchFilter}
+                  onChange={(e) => setBatchFilter(e.target.value)}
+                  placeholder="Batch ID"
+                />
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={1}>
+                <Form.Label className="small text-muted mb-1">SKU</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={skuFilter}
+                  onChange={(e) => setSkuFilter(e.target.value)}
+                  placeholder="SKU"
+                />
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+                <Form.Label className="small text-muted mb-1">Source Type</Form.Label>
+                <Form.Select
+                  value={sourceTypeFilter}
+                  onChange={(e) => setSourceTypeFilter(e.target.value)}
+                >
+                  <option value="All">All Sources</option>
+                  <option value="Store">Store (TO)</option>
+                  <option value="Distributor">Distributor (PO)</option>
+                </Form.Select>
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+                <Form.Label className="small text-muted mb-1">Order Type</Form.Label>
+                <Form.Select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                >
+                  <option value="All">All Types</option>
+                  <option value="TO">TO</option>
+                  <option value="PO">PO</option>
+                  <option value="Market Purchase">Market Purchase</option>
+                </Form.Select>
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+                <Form.Label className="small text-muted mb-1">Status</Form.Label>
+                <Form.Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="All">All</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Accepted">Accepted</option>
+                  <option value="In Dispatch">In Dispatch</option>
+                  <option value="Fulfilled">Fulfilled</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Partial">Partial</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Expired">Expired</option>
+                </Form.Select>
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+                <Button
+                  variant={showRetryOnly ? "primary" : "outline-secondary"}
+                  onClick={() => setShowRetryOnly(!showRetryOnly)}
+                  className="w-100"
+                  size="sm"
+                >
+                  {showRetryOnly ? "✓ " : ""}Re-try Orders
+                </Button>
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+                <Button
+                  variant={showMarketPurchaseOnly ? "primary" : "outline-secondary"}
+                  onClick={() => setShowMarketPurchaseOnly(!showMarketPurchaseOnly)}
+                  className="w-100"
+                  size="sm"
+                >
+                  {showMarketPurchaseOnly ? "✓ " : ""}Market Purchase
+                </Button>
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={1} className="d-flex align-items-end">
+                <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
+                  Clear
+                </Button>
+              </Col>
+            </Row>
+          )}
+
+          {/* Add animation styles */}
+          <style>{`
+            @keyframes slideDown {
+              from {
+                opacity: 0;
+                transform: translateY(-20px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}</style>
 
           {/* Table */}
           <div className="table-responsive" style={{ overflowX: 'auto', minWidth: '1000px' }} ref={tableRef}>
@@ -922,5 +594,207 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     </div>
   );
 };
+
+function ProductLineItemsTable({ items }) {
+  const handleLineAction = (item, action, pending) => {
+    switch(action) {
+      case 'view_details':
+        const detailsContent = `
+          <div class="p-3">
+            <h5 class="mb-3 fw-bold">Line Item Details</h5>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="text-muted small">Line ID</div>
+                <div class="fw-medium">${item.lineId}</div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted small">Product Name</div>
+                <div class="fw-medium">${item.product}</div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted small">SKU</div>
+                <div><code>${item.sku}</code></div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted small">Status</div>
+                <div><span class="badge bg-secondary">${item.status}</span></div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Qty Requested</div>
+                <div class="fw-medium">${item.qtyReq}</div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Qty Fulfilled</div>
+                <div class="fw-medium text-success">${item.qtyFulfilled}</div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Qty Pending</div>
+                <div class="fw-medium text-warning">${pending}</div>
+              </div>
+              <div class="col-12">
+                <div class="text-muted small">Remarks</div>
+                <div class="alert alert-info mb-0">${item.remarks || 'No remarks'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        // Use global modal function if available
+        if (window.openModalFromLine) {
+          window.openModalFromLine(`Line Details: ${item.lineId}`, detailsContent, 'modal-md');
+        }
+        break;
+        
+      case 'view_linked_web_order':
+        const webOrderContent = `
+          <div class="p-3">
+            <h5 class="mb-3 fw-bold">Linked Web Order</h5>
+            <div class="alert alert-info">
+              <i class="bi bi-link-45deg me-2"></i>
+              This line item is linked to Web Order: <strong>WO-2025-001</strong>
+            </div>
+            <p class="text-muted">Click below to navigate to the original customer web order.</p>
+            <button class="btn btn-primary" onclick="if(window.handleViewWebOrderFromModal) window.handleViewWebOrderFromModal('WO-2025-001')">
+              <i class="bi bi-box-arrow-up-right me-1"></i>View Web Order
+            </button>
+          </div>
+        `;
+        if (window.openModalFromLine) {
+          window.openModalFromLine(`Linked Web Order - Line ${item.lineId}`, webOrderContent, 'modal-md');
+        }
+        break;
+        
+      case 'trigger_recheck':
+        const recheckContent = `
+          <div class="p-3">
+            <h5 class="mb-3 fw-bold">Trigger Manual Recheck</h5>
+            <div class="alert alert-warning">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Recheck ${item.product}?</strong>
+            </div>
+            <p>System will re-evaluate store/distributor availability for this product.</p>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary" onclick="alert('✅ Recheck triggered for ${item.product}\\nSystem is re-evaluating availability...')">
+                <i class="bi bi-arrow-clockwise me-1"></i>Confirm Recheck
+              </button>
+              <button class="btn btn-secondary" onclick="window.location.reload()">Cancel</button>
+            </div>
+          </div>
+        `;
+        if (window.openModalFromLine) {
+          window.openModalFromLine(`Recheck - ${item.product}`, recheckContent, 'modal-md');
+        }
+        break;
+        
+      case 'add_remarks':
+        const remarksContent = `
+          <div class="p-3">
+            <h5 class="mb-3 fw-bold">Add Remarks</h5>
+            <div class="mb-3">
+              <label class="form-label">Remarks for Line ${item.lineId}:</label>
+              <textarea class="form-control" rows="4" id="remarksInput" placeholder="Enter your remarks here..."></textarea>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary" onclick="alert('✅ Remarks added for Line ${item.lineId}')">
+                <i class="bi bi-check-lg me-1"></i>Save Remarks
+              </button>
+              <button class="btn btn-secondary" onclick="window.location.reload()">Cancel</button>
+            </div>
+          </div>
+        `;
+        if (window.openModalFromLine) {
+          window.openModalFromLine(`Add Remarks - Line ${item.lineId}`, remarksContent, 'modal-md');
+        }
+        break;
+        
+      default:
+        break;
+    }
+  };
+
+  return (
+    <div className="col-12 mt-4">
+      <h5 className="text-primary fw-bold mb-3">Product Line Items</h5>
+      <div className="table-responsive" style={{ maxHeight: '400px', overflowX: 'auto', overflowY: 'auto' }}>
+        <Table size="sm" bordered style={{ minWidth: '1000px' }}>
+          <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+            <tr>
+              <th>Line ID</th>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Qty Req.</th>
+              <th>Qty Fulfilled</th>
+              <th>Qty Pending</th>
+              <th>Status</th>
+              <th>Remarks</th>
+              <th style={{ minWidth: '180px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => {
+              const pending = item.qtyReq - item.qtyFulfilled;
+              return (
+                <tr key={item.lineId || idx}>
+                  <td>{item.lineId}</td>
+                  <td>{item.product}</td>
+                  <td><code>{item.sku}</code></td>
+                  <td className="text-end">{item.qtyReq}</td>
+                  <td className="text-end text-success fw-medium">{item.qtyFulfilled}</td>
+                  <td className={`text-end ${pending > 0 ? 'text-warning fw-medium' : 'text-muted'}`}>{pending}</td>
+                  <td><span className={`badge ${getStatusBadgeClass(item.status)}`}>{item.status}</span></td>
+                  <td className="small">{item.remarks || '-'}</td>
+                  <td>
+                    <div className="d-flex gap-1">
+                      <OverlayTrigger placement="top" overlay={<Tooltip>View Details</Tooltip>}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary p-1"
+                          onClick={() => handleLineAction(item, 'view_details', pending)}
+                          style={{ width: '30px', height: '30px' }}
+                        >
+                          <i className="bi bi-eye"></i>
+                        </button>
+                      </OverlayTrigger>
+                      
+                      <OverlayTrigger placement="top" overlay={<Tooltip>View Linked Web Order</Tooltip>}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary p-1"
+                          onClick={() => handleLineAction(item, 'view_linked_web_order', pending)}
+                          style={{ width: '30px', height: '30px' }}
+                        >
+                          <i className="bi bi-link-45deg"></i>
+                        </button>
+                      </OverlayTrigger>
+                      
+                      {(pending > 0 && (item.status === 'Draft' || item.status === 'Rejected')) && (
+                        <OverlayTrigger placement="top" overlay={<Tooltip>Trigger Recheck</Tooltip>}>
+                          <button
+                            className="btn btn-sm btn-outline-secondary p-1"
+                            onClick={() => handleLineAction(item, 'trigger_recheck', pending)}
+                            style={{ width: '30px', height: '30px' }}
+                          >
+                            <i className="bi bi-info-circle"></i>
+                          </button>
+                        </OverlayTrigger>
+                      )}
+                      
+                      <OverlayTrigger placement="top" overlay={<Tooltip>Add Remarks</Tooltip>}>
+                        <button
+                          className="btn btn-sm btn-outline-secondary p-1"
+                          onClick={() => handleLineAction(item, 'add_remarks', pending)}
+                          style={{ width: '30px', height: '30px' }}
+                        >
+                          <i className="bi bi-file-text"></i>
+                        </button>
+                      </OverlayTrigger>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+    </div>
+  );
+}
 
 export default SourcingView;
