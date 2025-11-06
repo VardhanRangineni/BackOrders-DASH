@@ -488,8 +488,7 @@ export const sourcingOrders = [
     source: 'MedPlus Distributor DIST-MP-002',
     destination: 'Central Warehouse',
   status: 'Fulfilled',
-  trackingStatus: 'Fulfilled',
-    trackingStatus: 'PO Received at Warehouse',
+  trackingStatus: 'PO Received at Warehouse',
     items: [
       {
         lineId: 'WOL-008-1',
