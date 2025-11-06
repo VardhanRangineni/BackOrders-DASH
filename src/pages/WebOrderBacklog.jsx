@@ -4,7 +4,7 @@ import { formatDate, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 import OrderDetailsModal from '../components/OrderDetailsModal';
 
-const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, highlightedWebOrder, setHighlightedWebOrder, initialFilters = {}, clearFilters }) => {
+const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, highlightedWebOrder, setHighlightedWebOrder, initialFilters = {}, clearFilters, setHighlightedTOPO, onNavigate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [sourceFilter, setSourceFilter] = useState('All');
@@ -1013,13 +1013,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                     <small class="text-muted">Source from distributor/vendor</small>
                   </div>
                 </label>
-                <label class="list-group-item list-group-item-action">
-                  <input class="form-check-input me-2" type="radio" name="processOption" value="auto_source">
-                  <div>
-                    <div class="fw-medium">Auto-Source (System Recommended)</div>
-                    <small class="text-muted">Let system determine best source</small>
-                  </div>
-                </label>
               </div>
             </div>
 
@@ -1045,7 +1038,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         
         // Create global function
         window.processOrderRequest = (orderId) => {
-          const processOption = document.querySelector('input[name="processOption"]:checked')?.value || 'auto_source';
+          const processOption = document.querySelector('input[name="processOption"]:checked')?.value || 'create_to';
           
           setWebOrders(prevOrders => {
             return prevOrders.map(o => {
@@ -1537,7 +1530,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                       qtyFulfilled: order.items.reduce((sum, item) => sum + item.qtyFulfilled, 0),
                       status: order.overallStatus || getAggregateStatus(order.items),
                       source: order.items.map(item => item.source).filter((v, i, a) => a.indexOf(v) === i).join(', '),
-                      linkedDoc: order.items.flatMap(item => item.linkedDocs).join(', ') || '-'
+                      linkedDoc: order.items.flatMap(item => item.linkedDocs || []).filter(Boolean).join(', ') || '-'
                     } : {
                       product: order.product,
                       sku: order.sku,
@@ -1545,7 +1538,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                       qtyFulfilled: order.qtyFulfilled,
                       status: order.status,
                       source: order.source,
-                      linkedDoc: order.linkedDoc
+                      linkedDoc: order.linkedDoc || '-'
                     };
                     
                     const isHighlighted = highlightedWebOrder && order.id === highlightedWebOrder;
@@ -1572,7 +1565,30 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                           </span>
                         </td>
                         <td>{displayData.source || '-'}</td>
-                        <td>{displayData.linkedDoc || '-'}</td>
+                        <td>
+                          {displayData.linkedDoc && displayData.linkedDoc !== '-' && displayData.linkedDoc.trim() !== '' ? (
+                            displayData.linkedDoc.split(',').map((docId, i) => (
+                              <Button
+                                key={docId.trim() + i}
+                                variant="link"
+                                className="p-0 text-decoration-none fw-medium me-2"
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (typeof setHighlightedTOPO === 'function' && typeof onNavigate === 'function') {
+                                    setHighlightedTOPO(docId.trim());
+                                    onNavigate('sourcing');
+                                  }
+                                }}
+                              >
+                                {docId.trim()}
+                              </Button>
+                            ))
+                          ) : (
+                            <span>{displayData.linkedDoc || '-'}</span>
+                          )}
+                        </td>
                         <td>{formatDate(order.created)}</td>
                         <td>{formatDate(order.lastUpdated)}</td>
                         <td>{order.age || 0}</td>

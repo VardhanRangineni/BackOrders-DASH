@@ -1,9 +1,181 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Row, Col, Card, Form, Button, Table, Modal, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Row, Col, Card, Form, Button, Table, Modal } from 'react-bootstrap';
 import { exportToCSV, getStatusBadgeClass } from '../utils/utils';
-import ActionDropdown from '../components/ActionDropdown';
 
-const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenModal, onNavigate, setHighlightedWebOrder, initialFilters = {}, clearFilters }) => {
+function getTrackingBadgeClass(status) {
+  if (!status) return 'bg-secondary';
+  
+  // TO statuses
+  if (status.includes('TO Generated')) return 'bg-primary';
+  if (status.includes('TO In Transit')) return 'bg-info';
+  if (status.includes('TO Received') || status.includes('TO Partially Received')) return 'bg-success';
+  if (status.includes('TO Rejected')) return 'bg-danger';
+  
+  // PO statuses
+  if (status.includes('PO Generated')) return 'bg-purple';
+  if (status.includes('SO Created') || status.includes('Awaiting Dispatch')) return 'bg-primary';
+  if (status.includes('PO In Transit')) return 'bg-info';
+  if (status.includes('PO Received')) return 'bg-success';
+  if (status.includes('PO Rejected')) return 'bg-danger';
+  
+  // Market Purchase statuses
+  if (status.includes('Vendor Quote')) return 'bg-warning text-dark';
+  if (status.includes('Vendor Negotiation')) return 'bg-warning text-dark';
+  if (status.includes('Market Purchase Completed')) return 'bg-success';
+  
+  // General statuses
+  if (status === 'Draft Created') return 'bg-secondary';
+  if (status === 'Draft Approved') return 'bg-primary';
+  if (status === 'Fulfilled' || status.includes('Completed')) return 'bg-success';
+  if (status === 'Partially Fulfilled' || status.includes('Partial')) return 'bg-info';
+  if (status === 'Rejected') return 'bg-danger';
+  
+  return 'bg-secondary';
+}
+
+const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenModal, onNavigate, setHighlightedWebOrder, initialFilters = {}, clearFilters, highlightedTOPO, setHighlightedTOPO }) => {
+  const [showProductsModal, setShowProductsModal] = useState(false);
+  const [productsToShow, setProductsToShow] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [currentProductIndex, setCurrentProductIndex] = useState(null);
+  const [reassignData, setReassignData] = useState({ source: '', reason: '' });
+  const [rejectData, setRejectData] = useState({ reason: '', type: 'unavailable' });
+  const highlightedRowRef = useRef(null);
+
+  useEffect(() => {
+    if (highlightedTOPO) {
+      console.log('SourcingView received highlightedTOPO:', highlightedTOPO);
+      setTimeout(() => {
+        if (highlightedRowRef.current) {
+          console.log('Scrolling to highlighted row');
+          highlightedRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          console.log('No highlighted row ref found');
+        }
+      }, 100);
+      const timer = setTimeout(() => setHighlightedTOPO(null), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedTOPO, setHighlightedTOPO]);
+
+  // Handler to show products of selected drafts
+  const handleShowProducts = () => {
+    // Find selected orders and collect their items
+    const selectedOrders = filteredOrders.filter(order => selectedRows.includes(order.id));
+    const allProducts = selectedOrders.flatMap(order => order.items || []);
+    setProductsToShow(allProducts);
+    setSelectedProducts([]);
+    setShowProductsModal(true);
+  };
+
+  // Product selection handlers
+  const handleSelectAllProducts = (e) => {
+    if (e.target.checked) {
+      setSelectedProducts(productsToShow.map((_, idx) => idx));
+    } else {
+      setSelectedProducts([]);
+    }
+  };
+
+  const handleProductSelect = (idx) => {
+    setSelectedProducts(prev =>
+      prev.includes(idx)
+        ? prev.filter(i => i !== idx)
+        : [...prev, idx]
+    );
+  };
+
+  // Product action handlers
+  const handleReassignProducts = () => {
+    setCurrentProductIndex('bulk');
+    setShowReassignModal(true);
+  };
+
+  const handleRejectProducts = () => {
+    setCurrentProductIndex('bulk');
+    setShowRejectModal(true);
+  };
+
+  const handleReassignSingleProduct = (idx) => {
+    setCurrentProductIndex(idx);
+    setShowReassignModal(true);
+  };
+
+  const handleRejectSingleProduct = (idx) => {
+    setCurrentProductIndex(idx);
+    setShowRejectModal(true);
+  };
+
+  const confirmReassign = () => {
+    if (!reassignData.reason) {
+      onShowToast('Please provide a reason for reassignment');
+      return;
+    }
+
+    const updatedProducts = [...productsToShow];
+    
+    if (currentProductIndex === 'bulk') {
+      selectedProducts.forEach(idx => {
+        updatedProducts[idx] = { 
+          ...updatedProducts[idx], 
+          status: 'Pending',
+          reassignedTo: reassignData.source || 'Auto-Select',
+          reassignReason: reassignData.reason
+        };
+      });
+      onShowToast(`Reassigned ${selectedProducts.length} selected products to ${reassignData.source || 'Auto-Select'}`);
+      setSelectedProducts([]);
+    } else {
+      updatedProducts[currentProductIndex] = { 
+        ...updatedProducts[currentProductIndex], 
+        status: 'Pending',
+        reassignedTo: reassignData.source || 'Auto-Select',
+        reassignReason: reassignData.reason
+      };
+      onShowToast(`Reassigned product ${updatedProducts[currentProductIndex].sku} to ${reassignData.source || 'Auto-Select'}`);
+    }
+    
+    setProductsToShow(updatedProducts);
+    setShowReassignModal(false);
+    setReassignData({ source: '', reason: '' });
+  };
+
+  const confirmReject = () => {
+    if (!rejectData.reason) {
+      onShowToast('Please provide a reason for rejection');
+      return;
+    }
+
+    const updatedProducts = [...productsToShow];
+    
+    if (currentProductIndex === 'bulk') {
+      selectedProducts.forEach(idx => {
+        updatedProducts[idx] = { 
+          ...updatedProducts[idx], 
+          status: 'Rejected',
+          rejectReason: rejectData.reason,
+          rejectType: rejectData.type
+        };
+      });
+      onShowToast(`Rejected ${selectedProducts.length} selected products`);
+      setSelectedProducts([]);
+    } else {
+      updatedProducts[currentProductIndex] = { 
+        ...updatedProducts[currentProductIndex], 
+        status: 'Rejected',
+        rejectReason: rejectData.reason,
+        rejectType: rejectData.type
+      };
+      onShowToast(`Rejected product ${updatedProducts[currentProductIndex].sku}`);
+    }
+    
+    setProductsToShow(updatedProducts);
+    setShowRejectModal(false);
+    setRejectData({ reason: '', type: 'unavailable' });
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -18,6 +190,25 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [showMarketPurchaseOnly, setShowMarketPurchaseOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const tableRef = useRef(null);
+  const [selectedRows, setSelectedRows] = useState([]);
+
+  // Select all handler
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedRows(filteredOrders.map(order => order.id));
+    } else {
+      setSelectedRows([]);
+    }
+  };
+
+  // Individual row select handler
+  const handleRowSelect = (orderId) => {
+    setSelectedRows(prev =>
+      prev.includes(orderId)
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
 
   // Apply initial filters when component mounts or filters change
   useEffect(() => {
@@ -122,6 +313,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     setSourceTypeFilter('All');
     setShowRetryOnly(false);
     setShowMarketPurchaseOnly(false);
+    setSelectedRows([]);
   };
 
   const handleDownload = () => {
@@ -221,110 +413,8 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     onOpenModal(`Sourcing Details: ${order.id}`, content, 'modal-xl');
   };
 
-  const handleViewBatchLog = (batchId) => {
-    onOpenModal('Scheduler Batch Log', `
-      <div class="alert alert-info">
-        <strong>Batch ID:</strong> ${batchId}
-        <br><br>
-        <strong>Batch Details:</strong>
-        <ul class="mb-0 mt-2">
-          <li>Scheduler Run Time: 2024-01-15 08:00:00</li>
-          <li>Total Orders in Batch: 12</li>
-          <li>TOs Created: 8</li>
-          <li>POs Created: 4</li>
-          <li>Status: Completed</li>
-        </ul>
-      </div>
-    `, 'modal-lg');
-    onShowToast(`Viewing Batch Log: ${batchId}`);
-  };
-
-  const handleManualRecheck = (orderId) => {
-    onOpenModal('Manual Recheck', `
-      <div class="alert alert-warning">
-        <strong>Trigger Manual Recheck for ${orderId}?</strong>
-        <br><br>
-        This will re-evaluate stock availability and attempt to create a new TO/PO.
-        <br><br>
-        <em>Admin-only action. Backend integration required.</em>
-      </div>
-      <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-primary" onclick="alert('Recheck triggered')">Confirm Recheck</button>
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-      </div>
-    `, 'modal-md');
-  };
-
-  const handleAddRemarks = (order) => {
-    onOpenModal('Add Remarks', `
-      <div class="mb-3">
-        <label class="form-label fw-medium">Add Remarks for ${order.id}</label>
-        <textarea class="form-control" rows="4" placeholder="Enter remarks or reason for exception..."></textarea>
-      </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary" onclick="alert('Remarks saved')">Save Remarks</button>
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-      </div>
-    `, 'modal-md');
-  };
-
-  // Get available actions based on TO/PO status - Sourcing Level
-  const getOrderActions = (order) => {
-    const status = order.status;
-    const actions = [];
-
-    // Always show View Details first
-    actions.push({ label: 'View Details', value: 'view' });
-    
-    // View linked web order summary
-    actions.push({ label: 'View Linked Web Order', value: 'view_web_order' });
-    
-    // View scheduler batch log for retry audit and traceability
-    actions.push({ label: 'View Batch Log', value: 'view_batch_log' });
-    
-    // Status-specific actions based on TO/PO-Level Tracking Dashboard requirements
-    if (status === 'Draft' || status === 'Rejected') {
-      // Draft or Rejected TO/PO can be manually rechecked (admin users)
-      actions.push({ label: 'Trigger Manual Recheck', value: 'manual_recheck' });
-    }
-    
-    if (status === 'Accepted' || status === 'Partial') {
-      // Accepted/Partial orders in progress - no additional actions needed
-      // Only view-related options available (already added above)
-    }
-    
-    // Add remarks for exception records - available for all statuses for audit trail
-    actions.push({ label: 'Add Remarks / Notes', value: 'add_remarks' });
-    
-    return actions;
-  };
-
-  const handleActionSelect = (orderId, action) => {
-    const order = sourcingOrders.find(o => o.id === orderId);
-    
-    switch (action) {
-      case 'view':
-        handleViewDetails(order);
-        break;
-      case 'view_web_order':
-        handleViewWebOrder(order.webOrder);
-        break;
-      case 'view_batch_log':
-        handleViewBatchLog(order.batchId);
-        break;
-      case 'manual_recheck':
-        handleManualRecheck(order.id);
-        break;
-      case 'add_remarks':
-        handleAddRemarks(order);
-        break;
-      default:
-        break;
-    }
-  };
-
   return (
-    <div>
+  <div>
       <h2 className="mb-4 fw-bold">TO/PO-Level Tracking Dashboard</h2>
       <p className="text-secondary mb-4">
         Real-time view of all Transfer Orders (TO), Purchase Orders (PO), and Market Purchase orders with complete traceability, fulfilment progress, and retry audit. 
@@ -376,6 +466,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   placeholder="Search by ID, Web Order, Source..."
                 />
               </Col>
+              {/* ...existing filter columns... */}
               <Col xs={6} sm={6} md={3} lg={2} xl={2}>
                 <Form.Label className="small text-muted mb-1">Start Date</Form.Label>
                 <Form.Control
@@ -415,6 +506,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <Form.Select
                   value={sourceTypeFilter}
                   onChange={(e) => setSourceTypeFilter(e.target.value)}
+                  style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
                 >
                   <option value="All">All Sources</option>
                   <option value="Store">Store (TO)</option>
@@ -426,6 +518,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <Form.Select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
                 >
                   <option value="All">All Types</option>
                   <option value="TO">TO</option>
@@ -438,6 +531,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <Form.Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
                 >
                   <option value="All">All</option>
                   <option value="Draft">Draft</option>
@@ -476,38 +570,47 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   Clear
                 </Button>
               </Col>
+                <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+                  <Button
+                    variant="info"
+                    onClick={handleShowProducts}
+                    className="w-100"
+                    size="sm"
+                    disabled={selectedRows.length === 0}
+                    style={{ backgroundColor: '#a5d8fa', color: '#222', border: '1px solid #a5d8fa' }}
+                  >
+                    Show Products of Selected Drafts
+                  </Button>
+                </Col>
             </Row>
           )}
-
-          {/* Add animation styles */}
-          <style>{`
-            @keyframes slideDown {
-              from {
-                opacity: 0;
-                transform: translateY(-20px);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-          `}</style>
+                    {/* Actions cell removed */}
 
           {/* Table */}
           <div className="table-responsive" style={{ overflowX: 'auto', minWidth: '1000px' }} ref={tableRef}>
-            <Table striped hover className="mb-0" style={{ width: '100%', tableLayout: 'fixed' }}>
+            <Table striped hover className="mb-0" style={{ width: '100%' }}>
               <thead className="table-light">
                 <tr>
-                  <th>Draft ID</th>
-                  <th>Type</th>
-                  <th>TO/PO ID</th>
-                  <th>Web Order</th>
-                  <th>Status</th>
-                  <th>Qty Req.</th>
-                  <th>Qty Fulfilled</th>
-                  <th>Qty Pending</th>
-                  <th>Created</th>
-                  <th>Actions</th>
+                  <th style={{ width: '80px' }}>
+                    <div className="d-flex align-items-center">
+                      <Form.Check
+                        type="checkbox"
+                        checked={filteredOrders.length > 0 && selectedRows.length === filteredOrders.length}
+                        onChange={handleSelectAll}
+                        aria-label="Select all rows"
+                        className="me-2"
+                      />
+                      <span className="small">Select All</span>
+                    </div>
+                  </th>
+                  <th style={{ width: '120px' }}>Draft ID</th>
+                  <th style={{ width: '80px' }}>Type</th>
+                  <th style={{ width: '120px' }}>TO/PO ID</th>
+                  <th style={{ width: '120px' }}>Web Order</th>
+                  <th style={{ width: '130px' }}>Status</th>
+                  <th style={{ width: '200px' }}>TO/PO Tracking</th>
+                  <th style={{ width: '150px' }}>Created</th>
+                  {/* Actions column removed */}
                 </tr>
               </thead>
               <tbody>
@@ -519,60 +622,69 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   </tr>
                 ) : (
                   filteredOrders.map((order, idx) => {
-                    const qtyPending = order.qtyReq - order.qtyFulfilled;
+                    const isHighlighted = highlightedTOPO === order.docId;
+                    if (highlightedTOPO) {
+                      console.log(`Comparing highlightedTOPO "${highlightedTOPO}" with order.docId "${order.docId}":`, isHighlighted);
+                    }
                     return (
-                      <tr key={order.id}>
-                        <td>
-                          <Button 
-                            variant="link" 
-                            className="p-0 text-decoration-none fw-medium" 
-                            onClick={() => handleViewDetails(order)}
-                          >
-                            {order.id}
-                          </Button>
-                        </td>
-                        <td>
-                          <span className={`badge ${
-                            order.type === 'TO' ? 'bg-primary' : 
-                            order.type === 'PO' ? 'bg-purple' : 
-                            'bg-warning text-dark'
-                          }`}>
-                            {order.type}
-                          </span>
-                        </td>
-                        <td className="fw-medium">{order.docId}</td>
-                        <td>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="p-0 text-decoration-none"
-                            onClick={() => handleViewWebOrder(order.webOrder)}
-                          >
-                            {order.webOrder}
-                          </Button>
-                        </td>
-                        <td>
-                          <span className={`badge ${getStatusBadgeClass(order.status)}`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="text-end">{order.qtyReq}</td>
-                        <td className="text-end fw-medium text-success">{order.qtyFulfilled}</td>
-                        <td className="text-end">
-                          <span className={qtyPending > 0 ? 'text-warning fw-medium' : 'text-muted'}>
-                            {qtyPending}
-                          </span>
-                        </td>
-                        <td className="small">{order.created}</td>
-                        <td>
-                          <ActionDropdown
-                            orderId={order.id}
-                            actions={getOrderActions(order)}
-                            onActionSelect={handleActionSelect}
-                            dropDirection={'down'}
-                          />
-                        </td>
-                      </tr>
+                    <tr key={order.id}
+                      ref={isHighlighted ? highlightedRowRef : null}
+                      style={isHighlighted ? { 
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2)', 
+                        zIndex: 2, 
+                        position: 'relative',
+                        backgroundColor: '#f8f9fa'
+                      } : {}}>
+                      <td>
+                        <Form.Check
+                          type="checkbox"
+                          checked={selectedRows.includes(order.id)}
+                          onChange={() => handleRowSelect(order.id)}
+                          aria-label={`Select row ${order.id}`}
+                        />
+                      </td>
+                      <td>
+                        <Button 
+                          variant="link" 
+                          className="p-0 text-decoration-none fw-medium" 
+                          onClick={() => handleViewDetails(order)}
+                        >
+                          {order.id}
+                        </Button>
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          order.type === 'TO' ? 'bg-primary' : 
+                          order.type === 'PO' ? 'bg-purple' : 
+                          'bg-warning text-dark'
+                        }`}>
+                          {order.type}
+                        </span>
+                      </td>
+                      <td className="fw-medium">{order.docId}</td>
+                      <td>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="p-0 text-decoration-none"
+                          onClick={() => handleViewWebOrder(order.webOrder)}
+                        >
+                          {order.webOrder}
+                        </Button>
+                      </td>
+                      <td>
+                        <span className={`badge ${getStatusBadgeClass(order.status)}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${getTrackingBadgeClass(order.trackingStatus)} text-wrap`} style={{ whiteSpace: 'normal', lineHeight: '1.2' }}>
+                          {order.trackingStatus || 'Draft Created'}
+                        </span>
+                      </td>
+                      <td className="small">{order.created}</td>
+                      {/* Actions cell removed */}
+                    </tr>
                     );
                   })
                 )}
@@ -591,126 +703,212 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           {chartModalData.content}
         </Modal.Body>
       </Modal>
+        {/* Products Modal */}
+        <Modal show={showProductsModal} onHide={() => setShowProductsModal(false)} size="xl">
+          <Modal.Header closeButton>
+            <Modal.Title>Products in Selected Drafts</Modal.Title>
+          </Modal.Header>
+          <Modal.Body style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            {productsToShow.length === 0 ? (
+              <div className="text-secondary text-center py-4">No products found in selected drafts.</div>
+            ) : (
+              <>
+                <div className="mb-3 d-flex gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={selectedProducts.length === 0}
+                    onClick={handleReassignProducts}
+                  >
+                    Reassign Selected ({selectedProducts.length})
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    disabled={selectedProducts.length === 0}
+                    onClick={handleRejectProducts}
+                  >
+                    Reject Selected ({selectedProducts.length})
+                  </Button>
+                </div>
+                <Table bordered size="sm">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px' }}>
+                        <Form.Check
+                          type="checkbox"
+                          checked={productsToShow.length > 0 && selectedProducts.length === productsToShow.length}
+                          onChange={handleSelectAllProducts}
+                          aria-label="Select all products"
+                        />
+                      </th>
+                      <th>SKU</th>
+                      <th>Name</th>
+                      <th>Quantity</th>
+                      <th>Status</th>
+                      <th style={{ width: '100px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productsToShow.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <Form.Check
+                            type="checkbox"
+                            checked={selectedProducts.includes(idx)}
+                            onChange={() => handleProductSelect(idx)}
+                            aria-label={`Select product ${item.sku}`}
+                          />
+                        </td>
+                        <td>{item.sku}</td>
+                        <td>{item.product || item.name || '-'}</td>
+                        <td>{item.qtyReq ?? item.quantity ?? '-'}</td>
+                        <td>
+                          <span className={`badge ${getStatusBadgeClass(item.status)}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td>
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            className="me-1 p-1"
+                            onClick={() => handleReassignSingleProduct(idx)}
+                            title="Reassign"
+                          >
+                            <i className="bi bi-arrow-repeat"></i>
+                          </Button>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            className="p-1"
+                            onClick={() => handleRejectSingleProduct(idx)}
+                            title="Reject"
+                          >
+                            <i className="bi bi-x-circle"></i>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Reassign Modal */}
+      <Modal show={showReassignModal} onHide={() => setShowReassignModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Reassign Product{currentProductIndex === 'bulk' ? 's' : ''}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-3">
+            <p className="text-muted">
+              {currentProductIndex === 'bulk' 
+                ? `Reassign ${selectedProducts.length} selected products to alternate source`
+                : `Reassign product ${productsToShow[currentProductIndex]?.sku || ''} to alternate source`
+              }
+            </p>
+            <div className="alert alert-info mb-3">
+              <strong>ℹ Info:</strong> This will redirect the product(s) to alternate sourcing channels.
+            </div>
+            
+            <div className="mb-3">
+              <label className="form-label fw-medium">Reassign To</label>
+              <Form.Select 
+                value={reassignData.source}
+                onChange={(e) => setReassignData({...reassignData, source: e.target.value})}
+                style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
+              >
+                <option value="">Auto-Select</option>
+                <option value="DIST-MP-001">DIST-MP-001 - MedPlus Distributor 1</option>
+                <option value="DIST-MP-002">DIST-MP-002 - MedPlus Distributor 2</option>
+                <option value="DIST-MP-003">DIST-MP-003 - MedPlus Distributor 3</option>
+                <option value="VEND-MP-001">VEND-MP-001 - MedPlus Vendor 1</option>
+                <option value="VEND-MP-002">VEND-MP-002 - MedPlus Vendor 2</option>
+                <option value="Market">Market Purchase</option>
+              </Form.Select>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-medium">Reason for Reassignment</label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Please provide detailed reason..."
+                value={reassignData.reason}
+                onChange={(e) => setReassignData({...reassignData, reason: e.target.value})}
+              />
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowReassignModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={confirmReassign}>
+            Confirm Reassignment
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Reject Modal */}
+      <Modal show={showRejectModal} onHide={() => setShowRejectModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Reject Product{currentProductIndex === 'bulk' ? 's' : ''}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-3">
+            <p className="text-muted">
+              {currentProductIndex === 'bulk' 
+                ? `Reject ${selectedProducts.length} selected products`
+                : `Reject product ${productsToShow[currentProductIndex]?.sku || ''}`
+              }
+            </p>
+            <div className="alert alert-warning mb-3">
+              <strong>⚠ Warning:</strong> This action will mark the product(s) as rejected.
+            </div>
+            
+            <div className="mb-3">
+              <label className="form-label fw-medium">Rejection Type</label>
+              <Form.Select 
+                value={rejectData.type}
+                onChange={(e) => setRejectData({...rejectData, type: e.target.value})}
+                style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
+              >
+                <option value="unavailable">Product Unavailable</option>
+                <option value="price">Price Issue</option>
+                <option value="quality">Quality Concern</option>
+                <option value="stock">Out of Stock</option>
+                <option value="other">Other</option>
+              </Form.Select>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-medium">Reason for Rejection</label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Please provide detailed reason..."
+                value={rejectData.reason}
+                onChange={(e) => setRejectData({...rejectData, reason: e.target.value})}
+              />
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRejectModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={confirmReject}>
+            Confirm Rejection
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
-};
-
-function ProductLineItemsTable({ items }) {
-  const handleLineAction = (item, action, pending) => {
-    switch(action) {
-      case 'view_details':
-        const detailsContent = `
-          <div class="p-3">
-            <h5 class="mb-3 fw-bold">Line Item Details</h5>
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="text-muted small">Line ID</div>
-                <div class="fw-medium">${item.lineId}</div>
-              </div>
-              <div class="col-md-6">
-                <div class="text-muted small">Product Name</div>
-                <div class="fw-medium">${item.product}</div>
-              </div>
-              <div class="col-md-6">
-                <div class="text-muted small">SKU</div>
-                <div><code>${item.sku}</code></div>
-              </div>
-              <div class="col-md-6">
-                <div class="text-muted small">Status</div>
-                <div><span class="badge bg-secondary">${item.status}</span></div>
-              </div>
-              <div class="col-md-4">
-                <div class="text-muted small">Qty Requested</div>
-                <div class="fw-medium">${item.qtyReq}</div>
-              </div>
-              <div class="col-md-4">
-                <div class="text-muted small">Qty Fulfilled</div>
-                <div class="fw-medium text-success">${item.qtyFulfilled}</div>
-              </div>
-              <div class="col-md-4">
-                <div class="text-muted small">Qty Pending</div>
-                <div class="fw-medium text-warning">${pending}</div>
-              </div>
-              <div class="col-12">
-                <div class="text-muted small">Remarks</div>
-                <div class="alert alert-info mb-0">${item.remarks || 'No remarks'}</div>
-              </div>
-            </div>
-          </div>
-        `;
-        // Use global modal function if available
-        if (window.openModalFromLine) {
-          window.openModalFromLine(`Line Details: ${item.lineId}`, detailsContent, 'modal-md');
-        }
-        break;
-        
-      case 'view_linked_web_order':
-        const webOrderContent = `
-          <div class="p-3">
-            <h5 class="mb-3 fw-bold">Linked Web Order</h5>
-            <div class="alert alert-info">
-              <i class="bi bi-link-45deg me-2"></i>
-              This line item is linked to Web Order: <strong>WO-2025-001</strong>
-            </div>
-            <p class="text-muted">Click below to navigate to the original customer web order.</p>
-            <button class="btn btn-primary" onclick="if(window.handleViewWebOrderFromModal) window.handleViewWebOrderFromModal('WO-2025-001')">
-              <i class="bi bi-box-arrow-up-right me-1"></i>View Web Order
-            </button>
-          </div>
-        `;
-        if (window.openModalFromLine) {
-          window.openModalFromLine(`Linked Web Order - Line ${item.lineId}`, webOrderContent, 'modal-md');
-        }
-        break;
-        
-      case 'trigger_recheck':
-        const recheckContent = `
-          <div class="p-3">
-            <h5 class="mb-3 fw-bold">Trigger Manual Recheck</h5>
-            <div class="alert alert-warning">
-              <i class="bi bi-info-circle me-2"></i>
-              <strong>Recheck ${item.product}?</strong>
-            </div>
-            <p>System will re-evaluate store/distributor availability for this product.</p>
-            <div class="d-flex gap-2">
-              <button class="btn btn-primary" onclick="alert('✅ Recheck triggered for ${item.product}\\nSystem is re-evaluating availability...')">
-                <i class="bi bi-arrow-clockwise me-1"></i>Confirm Recheck
-              </button>
-              <button class="btn btn-secondary" onclick="window.location.reload()">Cancel</button>
-            </div>
-          </div>
-        `;
-        if (window.openModalFromLine) {
-          window.openModalFromLine(`Recheck - ${item.product}`, recheckContent, 'modal-md');
-        }
-        break;
-        
-      case 'add_remarks':
-        const remarksContent = `
-          <div class="p-3">
-            <h5 class="mb-3 fw-bold">Add Remarks</h5>
-            <div class="mb-3">
-              <label class="form-label">Remarks for Line ${item.lineId}:</label>
-              <textarea class="form-control" rows="4" id="remarksInput" placeholder="Enter your remarks here..."></textarea>
-            </div>
-            <div class="d-flex gap-2">
-              <button class="btn btn-primary" onclick="alert('✅ Remarks added for Line ${item.lineId}')">
-                <i class="bi bi-check-lg me-1"></i>Save Remarks
-              </button>
-              <button class="btn btn-secondary" onclick="window.location.reload()">Cancel</button>
-            </div>
-          </div>
-        `;
-        if (window.openModalFromLine) {
-          window.openModalFromLine(`Add Remarks - Line ${item.lineId}`, remarksContent, 'modal-md');
-        }
-        break;
-        
-      default:
-        break;
-    }
-  };
-
+};function ProductLineItemsTable({ items }) {
   return (
     <div className="col-12 mt-4">
       <h5 className="text-primary fw-bold mb-3">Product Line Items</h5>
@@ -726,7 +924,7 @@ function ProductLineItemsTable({ items }) {
               <th>Qty Pending</th>
               <th>Status</th>
               <th>Remarks</th>
-              <th style={{ minWidth: '180px' }}>Actions</th>
+              {/* Actions column removed */}
             </tr>
           </thead>
           <tbody>
@@ -742,51 +940,7 @@ function ProductLineItemsTable({ items }) {
                   <td className={`text-end ${pending > 0 ? 'text-warning fw-medium' : 'text-muted'}`}>{pending}</td>
                   <td><span className={`badge ${getStatusBadgeClass(item.status)}`}>{item.status}</span></td>
                   <td className="small">{item.remarks || '-'}</td>
-                  <td>
-                    <div className="d-flex gap-1">
-                      <OverlayTrigger placement="top" overlay={<Tooltip>View Details</Tooltip>}>
-                        <button
-                          className="btn btn-sm btn-outline-secondary p-1"
-                          onClick={() => handleLineAction(item, 'view_details', pending)}
-                          style={{ width: '30px', height: '30px' }}
-                        >
-                          <i className="bi bi-eye"></i>
-                        </button>
-                      </OverlayTrigger>
-                      
-                      <OverlayTrigger placement="top" overlay={<Tooltip>View Linked Web Order</Tooltip>}>
-                        <button
-                          className="btn btn-sm btn-outline-secondary p-1"
-                          onClick={() => handleLineAction(item, 'view_linked_web_order', pending)}
-                          style={{ width: '30px', height: '30px' }}
-                        >
-                          <i className="bi bi-link-45deg"></i>
-                        </button>
-                      </OverlayTrigger>
-                      
-                      {(pending > 0 && (item.status === 'Draft' || item.status === 'Rejected')) && (
-                        <OverlayTrigger placement="top" overlay={<Tooltip>Trigger Recheck</Tooltip>}>
-                          <button
-                            className="btn btn-sm btn-outline-secondary p-1"
-                            onClick={() => handleLineAction(item, 'trigger_recheck', pending)}
-                            style={{ width: '30px', height: '30px' }}
-                          >
-                            <i className="bi bi-info-circle"></i>
-                          </button>
-                        </OverlayTrigger>
-                      )}
-                      
-                      <OverlayTrigger placement="top" overlay={<Tooltip>Add Remarks</Tooltip>}>
-                        <button
-                          className="btn btn-sm btn-outline-secondary p-1"
-                          onClick={() => handleLineAction(item, 'add_remarks', pending)}
-                          style={{ width: '30px', height: '30px' }}
-                        >
-                          <i className="bi bi-file-text"></i>
-                        </button>
-                      </OverlayTrigger>
-                    </div>
-                  </td>
+                  {/* Actions cell removed */}
                 </tr>
               );
             })}

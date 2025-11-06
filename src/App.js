@@ -16,6 +16,7 @@ function App() {
   const [webOrders, setWebOrders] = useState(initialWebOrders);
   const [sourcingOrders, setSourcingOrders] = useState(initialSourcingOrders);
   const [highlightedWebOrder, setHighlightedWebOrder] = useState(null);
+  const [highlightedTOPO, setHighlightedTOPO] = useState(null);
   
   // Page filter states
   const [webOrderFilters, setWebOrderFilters] = useState({});
@@ -92,6 +93,8 @@ function App() {
             setHighlightedWebOrder={setHighlightedWebOrder}
             initialFilters={webOrderFilters}
             clearFilters={() => setWebOrderFilters({})}
+            setHighlightedTOPO={setHighlightedTOPO}
+            onNavigate={handleNavigate}
           />
         );
       case 'sourcing':
@@ -105,6 +108,8 @@ function App() {
             setHighlightedWebOrder={setHighlightedWebOrder}
             initialFilters={sourcingFilters}
             clearFilters={() => setSourcingFilters({})}
+            highlightedTOPO={highlightedTOPO}
+            setHighlightedTOPO={setHighlightedTOPO}
           />
         );
       default:

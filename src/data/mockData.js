@@ -5,6 +5,7 @@ export const webOrders = [
   {
     id: 'WO-2025-001',
     customer: 'MedPlus Customer - Hyderabad',
+  trackingStatus: 'TO Generated',
     items: [
       {
         lineId: 'WOL-001-1',
@@ -39,6 +40,7 @@ export const webOrders = [
   {
     id: 'WO-2025-002',
     customer: 'Sandeep G.',
+  trackingStatus: 'TO In Transit',
     items: [
       {
         lineId: 'WOL-002-1',
@@ -62,6 +64,7 @@ export const webOrders = [
   {
     id: 'WO-2025-003',
     customer: 'Dr. Bhaskar R.',
+  trackingStatus: 'PO Generated',
     items: [
       {
         lineId: 'WOL-003-1',
@@ -85,6 +88,7 @@ export const webOrders = [
   {
     id: 'WO-2025-004',
     customer: 'Ravi K.',
+  trackingStatus: 'TO Received at Warehouse',
     items: [
       {
         lineId: 'WOL-004-1',
@@ -108,6 +112,7 @@ export const webOrders = [
   {
     id: 'WO-2025-005',
     customer: 'Priya S.',
+  trackingStatus: 'Market Purchase In Progress',
     items: [
       {
         lineId: 'WOL-005-1',
@@ -142,6 +147,7 @@ export const webOrders = [
   {
     id: 'WO-2025-006',
     customer: 'Sunita M.',
+  trackingStatus: 'Draft Created',
     items: [
       {
         lineId: 'WOL-006-1',
@@ -165,6 +171,7 @@ export const webOrders = [
   {
     id: 'WO-2025-007',
     customer: 'Vijay P.',
+  trackingStatus: 'TO In Transit',
     items: [
       {
         lineId: 'WOL-007-1',
@@ -188,6 +195,7 @@ export const webOrders = [
   {
     id: 'WO-2025-008',
     customer: 'Kiran D.',
+  trackingStatus: 'PO Received at Warehouse',
     items: [
       {
         lineId: 'WOL-008-1',
@@ -211,6 +219,7 @@ export const webOrders = [
   {
     id: 'WO-2025-009',
     customer: 'Nikhil R.',
+  trackingStatus: 'PO Rejected - Escalated',
     items: [
       {
         lineId: 'WOL-009-1',
@@ -234,6 +243,7 @@ export const webOrders = [
   {
     id: 'WO-2025-010',
     customer: 'Arpit J.',
+  trackingStatus: 'Draft Approved - Fulfilled',
     items: [
       {
         lineId: 'WOL-010-1',
@@ -266,6 +276,7 @@ export const sourcingOrders = [
     source: 'Store S-HYD-01 (Hyderabad)',
     destination: 'Central Warehouse',
     status: 'Partially Fulfilled',
+    trackingStatus: 'TO Received at Warehouse',
     items: [
       {
         lineId: 'WOL-001-1',
@@ -304,6 +315,7 @@ export const sourcingOrders = [
     source: 'Store S-BAN-01 (Bangalore)',
     destination: 'Central Warehouse',
     status: 'Draft',
+  trackingStatus: 'Draft Created',
     items: [
       {
         lineId: 'WOL-001-1',
@@ -335,6 +347,7 @@ export const sourcingOrders = [
     source: 'MedPlus Distributor DIST-MP-001',
     destination: 'Central Warehouse',
     status: 'Accepted',
+    trackingStatus: 'SO Created - Awaiting Dispatch',
     items: [
       {
         lineId: 'WOL-003-1',
@@ -373,6 +386,7 @@ export const sourcingOrders = [
     source: 'Store S-CHE-01 (Chennai)',
     destination: 'Central Warehouse',
     status: 'Fulfilled',
+    trackingStatus: 'TO Received at Warehouse',
     items: [
       {
         lineId: 'WOL-002-1',
@@ -411,6 +425,7 @@ export const sourcingOrders = [
     source: 'Store S-BAN-02 (Bangalore)',
     destination: 'Central Warehouse',
     status: 'Fulfilled',
+    trackingStatus: 'TO Received at Warehouse',
     items: [
       {
         lineId: 'WOL-004-1',
@@ -441,6 +456,7 @@ export const sourcingOrders = [
     source: 'Store S-PUN-01 (Pune)',
     destination: 'Central Warehouse',
     status: 'Rejected',
+    trackingStatus: 'TO Rejected - Stock Unavailable',
     items: [
       {
         lineId: 'WOL-005-1',
@@ -471,7 +487,9 @@ export const sourcingOrders = [
     batchId: 'BATCH-004',
     source: 'MedPlus Distributor DIST-MP-002',
     destination: 'Central Warehouse',
-    status: 'Fulfilled',
+  status: 'Fulfilled',
+  trackingStatus: 'Fulfilled',
+    trackingStatus: 'PO Received at Warehouse',
     items: [
       {
         lineId: 'WOL-008-1',
@@ -502,6 +520,7 @@ export const sourcingOrders = [
     source: 'Store S-HYD-01 (Hyderabad)',
     destination: 'Central Warehouse',
     status: 'Partially Fulfilled',
+    trackingStatus: 'TO Partially Received',
     items: [
       {
         lineId: 'WOL-007-1',
@@ -532,6 +551,7 @@ export const sourcingOrders = [
     source: 'Store S-MUM-01 (Mumbai)',
     destination: 'Central Warehouse',
     status: 'In Dispatch',
+    trackingStatus: 'TO In Transit',
     items: [
       {
         lineId: 'WOL-007-1',
@@ -563,6 +583,7 @@ export const sourcingOrders = [
     source: 'Local Market Vendor',
     destination: 'Central Warehouse',
     status: 'Approved',
+    trackingStatus: 'Vendor Quote Approved',
     items: [
       {
         lineId: 'WOL-005-1',
@@ -597,6 +618,7 @@ export const sourcingOrders = [
     source: 'Local Market Vendor',
     destination: 'Central Warehouse',
     status: 'In Progress',
+    trackingStatus: 'Vendor Negotiation in Progress',
     items: [
       {
         lineId: 'WOL-005-2',
@@ -631,6 +653,7 @@ export const sourcingOrders = [
     source: 'Local Market Vendor',
     destination: 'Central Warehouse',
     status: 'Fulfilled',
+    trackingStatus: 'Market Purchase Completed',
     items: [
       {
         lineId: 'WOL-010-1',
@@ -666,6 +689,7 @@ export const sourcingOrders = [
     source: 'MedPlus Distributor DIST-MP-003',
     destination: 'Central Warehouse',
     status: 'Rejected',
+    trackingStatus: 'PO Rejected - Out of Stock',
     items: [
       {
         lineId: 'WOL-009-1',
@@ -698,6 +722,7 @@ export const sourcingOrders = [
     source: 'Local Market Vendor',
     destination: 'Central Warehouse',
     status: 'Approved',
+    trackingStatus: 'Vendor Quote Received',
     items: [
       {
         lineId: 'WOL-009-1',
