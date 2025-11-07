@@ -12,7 +12,18 @@ import './App.css';
 function App() {
   // Initialize sidebar as collapsed by default
   const [sidebarMode, setSidebarMode] = useState('collapsed');
-  const [activePage, setActivePage] = useState('home');
+  // Preserve the active page across refreshes. Prefer URL hash, then sessionStorage, fallback to 'home'.
+  const getInitialPage = () => {
+    try {
+      const hash = window.location.hash;
+      if (hash && hash.length > 1) return hash.replace('#', '');
+    } catch (e) {
+      // ignore (server-side or restricted environments)
+    }
+    const saved = sessionStorage.getItem('activePage');
+    return saved || 'home';
+  };
+  const [activePage, setActivePage] = useState(getInitialPage);
   const [webOrders, setWebOrders] = useState(initialWebOrders);
   const [sourcingOrders, setSourcingOrders] = useState(initialSourcingOrders);
   const [highlightedWebOrder, setHighlightedWebOrder] = useState(null);
@@ -43,6 +54,16 @@ function App() {
 
   const handleNavigate = (pageId) => {
     setActivePage(pageId);
+    try {
+      sessionStorage.setItem('activePage', pageId);
+      // Also update the hash so the URL reflects the current view (optional)
+      if (window && typeof window.history !== 'undefined') {
+        // update hash without adding a history entry
+        window.location.hash = pageId;
+      }
+    } catch (e) {
+      // ignore sessionStorage errors
+    }
     // Close sidebar on mobile after navigation
     if (window.innerWidth <= 768) {
       setSidebarMode('collapsed');

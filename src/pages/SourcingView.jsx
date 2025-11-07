@@ -62,10 +62,52 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
   // Handler to show products of selected drafts
   const handleShowProducts = () => {
-    // Find selected orders and collect their items
+    // Find selected orders and collect their items that are not fully fulfilled
     const selectedOrders = filteredOrders.filter(order => selectedRows.includes(order.id));
-    const allProducts = selectedOrders.flatMap(order => order.items || []);
-    setProductsToShow(allProducts);
+    
+    // Consolidate products by SKU
+    const productMap = new Map();
+    
+    selectedOrders.forEach(order => {
+      (order.items || []).forEach(item => {
+        const req = item.qtyReq ?? item.qty ?? 0;
+        const fulfilled = item.qtyFulfilled ?? 0;
+        const pending = req - fulfilled;
+        
+        if (pending > 0 && item.status !== 'Fulfilled') {
+          const sku = item.sku;
+          
+          if (productMap.has(sku)) {
+            // Product already exists, sum quantities and add draft ID
+            const existing = productMap.get(sku);
+            existing.qtyReq += req;
+            existing.qtyFulfilled += fulfilled;
+            existing.qtyPending += pending;
+            existing.draftIds.push(order.id);
+            existing.orders.push(order);
+            existing.statuses.push(item.status);
+            existing.statusByDraft[order.id] = item.status;
+          } else {
+            // New product, create entry
+            productMap.set(sku, {
+              ...item,
+              qtyReq: req,
+              qtyFulfilled: fulfilled,
+              qtyPending: pending,
+              draftIds: [order.id],
+              orders: [order],
+              statuses: [item.status],
+              statusByDraft: { [order.id]: item.status }
+            });
+          }
+        }
+      });
+    });
+    
+    // Convert map to array
+    const consolidatedProducts = Array.from(productMap.values());
+    
+    setProductsToShow(consolidatedProducts);
     setSelectedProducts([]);
     setShowProductsModal(true);
   };
@@ -147,30 +189,77 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       onShowToast('Please provide a reason for rejection');
       return;
     }
-
     const updatedProducts = [...productsToShow];
-    
-    if (currentProductIndex === 'bulk') {
-      selectedProducts.forEach(idx => {
-        updatedProducts[idx] = { 
-          ...updatedProducts[idx], 
-          status: 'Rejected',
+
+    const nowStamp = new Date().toLocaleString();
+    const year = new Date().getFullYear();
+
+    const handleSingleReject = (idx) => {
+      const item = updatedProducts[idx];
+      const fulfilled = item.qtyFulfilled ?? 0;
+
+      const baseRemark = `${item.remarks || ''}\n[${nowStamp}] Rejected: ${rejectData.reason}`.trim();
+
+      // If low stock / unavailable -> create TO to store
+      if (rejectData.type === 'unavailable' || rejectData.type === 'stock') {
+        const newDoc = `TO-${year}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+        updatedProducts[idx] = {
+          ...item,
+          status: 'TO Created',
+          linkedDocs: [...(item.linkedDocs || []), newDoc],
+          qtyPending: 0,
+          qtyFulfilled: fulfilled,
           rejectReason: rejectData.reason,
-          rejectType: rejectData.type
+          rejectType: rejectData.type,
+          remarks: `${baseRemark}\nTO created due to low stock: ${newDoc}`
         };
-      });
-      onShowToast(`Rejected ${selectedProducts.length} selected products`);
-      setSelectedProducts([]);
-    } else {
-      updatedProducts[currentProductIndex] = { 
-        ...updatedProducts[currentProductIndex], 
+        return { type: 'to', doc: newDoc };
+      }
+
+      // If damaged / quality -> create TOI to warehouse for damaged products
+      if (rejectData.type === 'quality' || rejectData.type === 'damaged') {
+        const newDoc = `TOI-${year}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+        updatedProducts[idx] = {
+          ...item,
+          status: 'TOI Created',
+          linkedDocs: [...(item.linkedDocs || []), newDoc],
+          qtyPending: 0,
+          qtyFulfilled: fulfilled,
+          rejectReason: rejectData.reason,
+          rejectType: rejectData.type,
+          source: 'Warehouse (Damaged)',
+          remarks: `${baseRemark}\nTOI created for damaged product: ${newDoc}`
+        };
+        return { type: 'toi', doc: newDoc };
+      }
+
+      // Default: just mark rejected
+      updatedProducts[idx] = {
+        ...item,
         status: 'Rejected',
         rejectReason: rejectData.reason,
-        rejectType: rejectData.type
+        rejectType: rejectData.type,
+        remarks: baseRemark
       };
-      onShowToast(`Rejected product ${updatedProducts[currentProductIndex].sku}`);
+      return { type: 'rejected' };
+    };
+
+    if (currentProductIndex === 'bulk') {
+      const created = { to: 0, toi: 0, rejected: 0 };
+      selectedProducts.forEach(idx => {
+        const res = handleSingleReject(idx);
+        if (res.type === 'to') created.to++;
+        else if (res.type === 'toi') created.toi++;
+        else created.rejected++;
+      });
+      onShowToast(`Rejected ${selectedProducts.length} selected products (${created.to} TO, ${created.toi} TOI)`);
+      setSelectedProducts([]);
+    } else {
+      const res = handleSingleReject(currentProductIndex);
+      const msg = res.type === 'to' ? `Created TO ${res.doc}` : res.type === 'toi' ? `Created TOI ${res.doc}` : `Rejected product ${updatedProducts[currentProductIndex].sku}`;
+      onShowToast(msg);
     }
-    
+
     setProductsToShow(updatedProducts);
     setShowRejectModal(false);
     setRejectData({ reason: '', type: 'unavailable' });
@@ -317,77 +406,40 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   };
 
   const handleDownload = () => {
-    // Flatten orders to include product line items
-    const exportData = [];
-    
-    filteredOrders.forEach(order => {
-      if (order.items && order.items.length > 0) {
-        // Export each product line item as a separate row
-        order.items.forEach(item => {
-          exportData.push({
-            id: order.id,
-            type: order.type,
-            docId: order.docId,
-            webOrder: order.webOrder,
-            batchId: order.batchId,
-            source: order.source,
-            destination: order.destination,
-            status: order.status,
-            lineId: item.lineId,
-            product: item.product,
-            sku: item.sku,
-            qtyReq: item.qtyReq,
-            qtyFulfilled: item.qtyFulfilled,
-            qtyPending: item.qtyReq - item.qtyFulfilled,
-            itemStatus: item.status,
-            itemRemarks: item.remarks || '',
-            retry: order.retry,
-            created: order.created,
-            createdBy: order.createdBy,
-            lastActionedBy: order.lastActionedBy,
-            remarks: order.remarks
-          });
-        });
-      } else {
-        // Export order without line items
-        exportData.push({
-          id: order.id,
-          type: order.type,
-          docId: order.docId,
-          webOrder: order.webOrder,
-          batchId: order.batchId,
-          source: order.source,
-          destination: order.destination,
-          status: order.status,
-          lineId: '',
-          product: '',
-          sku: '',
-          qtyReq: order.qtyReq,
-          qtyFulfilled: order.qtyFulfilled,
-          qtyPending: order.qtyReq - order.qtyFulfilled,
-          itemStatus: '',
-          itemRemarks: '',
-          retry: order.retry,
-          created: order.created,
-          createdBy: order.createdBy,
-          lastActionedBy: order.lastActionedBy,
-          remarks: order.remarks
-        });
-      }
+    // Export one row per order. If order has multiple products, merge them into a single cell.
+    const exportData = filteredOrders.map(order => {
+      const items = order.items && order.items.length > 0 ? order.items : (order.product ? [{ product: order.product, sku: order.sku, qtyReq: order.qtyReq ?? order.qty ?? 0, qtyFulfilled: order.qtyFulfilled ?? 0 }] : []);
+
+      const qtyReq = items.reduce((s, it) => s + (it.qtyReq ?? it.qty ?? 0), 0);
+      const qtyFulfilled = items.reduce((s, it) => s + (it.qtyFulfilled ?? 0), 0);
+      const qtyPending = Math.max(0, qtyReq - qtyFulfilled);
+
+      const products = items.map(it => `${it.product || it.name || '-'} (${it.sku || ''}) x${it.qtyReq ?? it.qty ?? 0}`).join(' | ');
+
+      return {
+        id: order.id,
+        type: order.type || '',
+        docId: order.docId || '',
+        webOrder: order.webOrder || '',
+        batchId: order.batchId || '',
+        status: order.status || '',
+        qtyReq,
+        qtyFulfilled,
+        products,
+        qtyPending,
+        remarks: order.remarks || '',
+        created: order.created || ''
+      };
     });
-    
+
     const headers = {
-      id: 'Draft ID', type: 'Type', docId: 'TO/PO ID', webOrder: 'Web Order', 
-      batchId: 'Batch ID', source: 'Source', destination: 'Destination', 
-      status: 'Order Status', lineId: 'Line ID', product: 'Product', sku: 'SKU',
-      qtyReq: 'Qty Req.', qtyFulfilled: 'Qty Fulfilled', qtyPending: 'Qty Pending',
-      itemStatus: 'Item Status', itemRemarks: 'Item Remarks',
-      retry: 'Retry', created: 'Created', createdBy: 'Created By', 
-      lastActionedBy: 'Last Actioned', remarks: 'Order Remarks'
+      id: 'Draft ID', type: 'Type', docId: 'TO/PO ID', webOrder: 'Web Order', batchId: 'Batch ID',
+      status: 'Order Status', qtyReq: 'Qty Req.', qtyFulfilled: 'Qty Fulfilled', products: 'Products', qtyPending: 'Qty Pending',
+      remarks: 'Order Remarks', created: 'Created'
     };
-    
+
     exportToCSV(exportData, headers, 'sourcing_export.csv');
-    onShowToast(`Exported ${exportData.length} product line items from ${filteredOrders.length} orders to sourcing_export.csv`);
+    onShowToast(`Exported ${exportData.length} orders to sourcing_export.csv`);
   };
 
   const handleViewDetails = (order) => {
@@ -572,14 +624,13 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
               </Col>
                 <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
                   <Button
-                    variant="info"
+                    variant="outline-secondary"
+                    
                     onClick={handleShowProducts}
-                    className="w-100"
                     size="sm"
                     disabled={selectedRows.length === 0}
-                    style={{ backgroundColor: '#a5d8fa', color: '#222', border: '1px solid #a5d8fa' }}
                   >
-                    Show Products of Selected Drafts
+                    Show unfullfilled products
                   </Button>
                 </Col>
             </Row>
@@ -629,12 +680,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                     return (
                     <tr key={order.id}
                       ref={isHighlighted ? highlightedRowRef : null}
-                      style={isHighlighted ? { 
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2)', 
-                        zIndex: 2, 
-                        position: 'relative',
-                        backgroundColor: '#f8f9fa'
-                      } : {}}>
+                        style={isHighlighted ? { 
+                          /* subtle soft shadow only — keep original row bg */
+                          boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
+                          zIndex: 2, 
+                          position: 'relative'
+                        } : {}}>
                       <td>
                         <Form.Check
                           type="checkbox"
@@ -713,22 +764,65 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
               <div className="text-secondary text-center py-4">No products found in selected drafts.</div>
             ) : (
               <>
-                <div className="mb-3 d-flex gap-2">
+                <div className="mb-3 d-flex justify-content-between align-items-center">
+                  <div className="d-flex gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={selectedProducts.length === 0}
+                      onClick={handleReassignProducts}
+                    >
+                      Reassign Selected ({selectedProducts.length})
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      disabled={selectedProducts.length === 0}
+                      onClick={handleRejectProducts}
+                    >
+                      Reject Selected ({selectedProducts.length})
+                    </Button>
+                  </div>
                   <Button
-                    variant="primary"
+                    variant="success"
                     size="sm"
-                    disabled={selectedProducts.length === 0}
-                    onClick={handleReassignProducts}
+                    onClick={() => {
+                      const exportData = productsToShow.map(item => {
+                        const req = item.qtyReq ?? item.quantity ?? 0;
+                        const fulfilled = item.qtyFulfilled ?? 0;
+                        const pending = Math.max(0, req - fulfilled);
+                        
+                        // Create status string showing draft ID: status
+                        const statusByDraft = (item.draftIds || []).map((draftId, idx) => {
+                          const status = item.statusByDraft?.[draftId] || item.statuses?.[idx] || 'Unknown';
+                          return `${draftId}: ${status}`;
+                        }).join(' | ');
+                        
+                        return {
+                          sku: item.sku || '',
+                          name: item.product || item.name || '',
+                          qtyReq: req,
+                          qtyFulfilled: fulfilled,
+                          qtyPending: pending,
+                          draftIds: (item.draftIds || []).join(', '),
+                          statusByDraft: statusByDraft
+                        };
+                      });
+                      const headers = {
+                        sku: 'SKU',
+                        name: 'Name',
+                        qtyReq: 'Qty Req.',
+                        qtyFulfilled: 'Qty Fulfilled',
+                        qtyPending: 'Qty Pending',
+                        draftIds: 'Draft IDs',
+                        statusByDraft: 'Status by Draft'
+                      };
+                      exportToCSV(exportData, headers, 'consolidated_products_export.csv');
+                      onShowToast(`Exported ${exportData.length} products to consolidated_products_export.csv`);
+                    }}
                   >
-                    Reassign Selected ({selectedProducts.length})
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    disabled={selectedProducts.length === 0}
-                    onClick={handleRejectProducts}
-                  >
-                    Reject Selected ({selectedProducts.length})
+                    <i className="bi bi-download me-2"></i>
+                    Download Excel
                   </Button>
                 </div>
                 <Table bordered size="sm">
@@ -744,13 +838,20 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                       </th>
                       <th>SKU</th>
                       <th>Name</th>
-                      <th>Quantity</th>
-                      <th>Status</th>
+                      <th>Qty Req.</th>
+                      <th>Qty Fulfilled</th>
+                      <th>Qty Pending</th>
+                      <th style={{ width: '180px' }}>Draft IDs</th>
+                      <th style={{ width: '180px' }}>Status by Draft</th>
                       <th style={{ width: '100px' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {productsToShow.map((item, idx) => (
+                    {productsToShow.map((item, idx) => {
+                      const req = item.qtyReq ?? item.quantity ?? 0;
+                      const fulfilled = item.qtyFulfilled ?? 0;
+                      const pending = Math.max(0, req - fulfilled);
+                      return (
                       <tr key={idx}>
                         <td>
                           <Form.Check
@@ -762,11 +863,41 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                         </td>
                         <td>{item.sku}</td>
                         <td>{item.product || item.name || '-'}</td>
-                        <td>{item.qtyReq ?? item.quantity ?? '-'}</td>
+                        <td className="text-end">{req}</td>
+                        <td className="text-end text-success fw-medium">{fulfilled}</td>
+                        <td className={`text-end ${pending > 0 ? 'text-warning fw-medium' : 'text-muted'}`}>{pending}</td>
                         <td>
-                          <span className={`badge ${getStatusBadgeClass(item.status)}`}>
-                            {item.status}
-                          </span>
+                          <div className="d-flex flex-wrap gap-1">
+                            {(item.draftIds || []).map((draftId, dIdx) => (
+                              <Button
+                                key={dIdx}
+                                variant="link"
+                                size="sm"
+                                className="p-0 text-decoration-none"
+                                onClick={() => handleViewDetails(item.orders[dIdx])}
+                                title={`View ${draftId} details`}
+                              >
+                                <span className="badge bg-info text-white">
+                                  {draftId}
+                                </span>
+                              </Button>
+                            ))}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-wrap gap-1">
+                            {(item.draftIds || []).map((draftId, dIdx) => {
+                              const status = item.statusByDraft?.[draftId] || item.statuses?.[dIdx] || 'Unknown';
+                              return (
+                                <div key={dIdx} className="d-flex align-items-center gap-1" style={{ fontSize: '0.75rem' }}>
+                                  <span className="text-muted" style={{ fontSize: '0.7rem' }}>{draftId.split('-')[2]}:</span>
+                                  <span className={`badge ${getStatusBadgeClass(status)}`}>
+                                    {status}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </td>
                         <td>
                           <Button
@@ -789,7 +920,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                           </Button>
                         </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </Table>
               </>

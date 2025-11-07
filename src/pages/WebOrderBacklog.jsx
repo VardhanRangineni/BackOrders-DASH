@@ -125,7 +125,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             qtyFulfilled: item.qtyFulfilled,
             qtyPending: item.qtyPending,
             itemStatus: item.status,
-            source: item.source || '',
             linkedDocs: item.linkedDocs?.join(', ') || '',
             itemRemarks: item.remarks || ''
           });
@@ -147,7 +146,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           qtyFulfilled: order.qtyFulfilled || 0,
           qtyPending: '',
           itemStatus: '',
-          source: order.source || '',
           linkedDocs: order.linkedDoc || '',
           itemRemarks: ''
         });
@@ -160,7 +158,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       retry: 'Retry', orderRemarks: 'Order Remarks',
       product: 'Product', sku: 'SKU', qty: 'Qty Req.', 
       qtyFulfilled: 'Qty Fulfilled', qtyPending: 'Qty Pending',
-      itemStatus: 'Item Status', source: 'Source', 
+      itemStatus: 'Item Status',
       linkedDocs: 'Linked Docs', itemRemarks: 'Item Remarks'
     };
     
@@ -192,201 +190,49 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     }
 
     switch (actionValue) {
-      case 'view_details':
-        // Show detailed product information in modal
-        const detailsContent = `
-          <div class="p-3">
-            <h5 class="mb-3 fw-bold">Product Line Details</h5>
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="text-muted small">Product Name</div>
-                <div class="fw-medium">${product.product}</div>
-              </div>
-              <div class="col-md-6">
-                <div class="text-muted small">SKU</div>
-                <div><code>${product.sku}</code></div>
-              </div>
-              <div class="col-md-4">
-                <div class="text-muted small">Qty Requested</div>
-                <div class="fw-medium">${product.qty}</div>
-              </div>
-              <div class="col-md-4">
-                <div class="text-muted small">Qty Fulfilled</div>
-                <div class="fw-medium text-success">${product.qtyFulfilled}</div>
-              </div>
-              <div class="col-md-4">
-                <div class="text-muted small">Qty Pending</div>
-                <div class="fw-medium text-warning">${product.qtyPending}</div>
-              </div>
-              <div class="col-md-6">
-                <div class="text-muted small">Status</div>
-                <div><span class="badge bg-secondary">${product.status}</span></div>
-              </div>
-              <div class="col-md-6">
-                <div class="text-muted small">Source</div>
-                <div>${product.source || 'Not assigned'}</div>
-              </div>
-              <div class="col-12">
-                <div class="text-muted small">Linked Documents</div>
-                <div>${product.linkedDocs?.join(', ') || 'None'}</div>
-              </div>
-              <div class="col-12">
-                <div class="text-muted small">Remarks</div>
-                <div class="alert alert-info mb-0">${product.remarks || 'No remarks'}</div>
-              </div>
-            </div>
-          </div>
-        `;
-        onOpenModal(`Product Details: ${product.product}`, detailsContent, 'modal-md');
-        break;
-        
-      case 'view_linked_to_po':
-        if (product.linkedDocs && product.linkedDocs.length > 0) {
-          const docsContent = `
-            <div class="p-3">
-              <h5 class="mb-3 fw-bold">Linked TO/PO Documents</h5>
-              <div class="list-group">
-                ${product.linkedDocs.map(doc => {
-                  const docType = doc.startsWith('TO-') ? 'Transfer Order' : 'Purchase Order';
-                  return `
-                  <div class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <div>
-                        <i class="bi bi-file-earmark-text me-2"></i>
-                        <strong>${doc}</strong> <span class="badge bg-secondary ms-2">${docType}</span>
-                      </div>
-                      <button class="btn btn-sm btn-primary" onclick="window.viewDocument('${doc}', '${docType}', '${product.product}', '${product.sku}', ${product.qty})">
-                        <i class="bi bi-eye me-1"></i>View Document
-                      </button>
-                    </div>
-                  </div>
-                `;
-                }).join('')}
-              </div>
-            </div>
-          `;
-          
-          // Create global function to view document
-          window.viewDocument = (docId, docType, productName, sku, qty) => {
-            const currentDate = new Date().toLocaleDateString();
-            const currentDateTime = new Date().toLocaleString();
-            const expectedDateTO = new Date(Date.now() + 2*24*60*60*1000).toLocaleDateString();
-            const expectedDatePO = new Date(Date.now() + 5*24*60*60*1000).toLocaleDateString();
-            
-            const toSpecific = `
-                <div class="mb-4">
-                  <h5 class="fw-bold mb-3">Transfer Information</h5>
-                  <div class="row">
-                    <div class="col-6">
-                      <p><strong>From Store:</strong> Central Warehouse</p>
-                      <p><strong>To Store:</strong> Store Location TBD</p>
-                    </div>
-                    <div class="col-6">
-                      <p><strong>Priority:</strong> High</p>
-                      <p><strong>Expected Date:</strong> ${expectedDateTO}</p>
-                    </div>
-                  </div>
-                </div>
-            `;
-            
-            const poSpecific = `
-                <div class="mb-4">
-                  <h5 class="fw-bold mb-3">Purchase Order Information</h5>
-                  <div class="row">
-                    <div class="col-6">
-                      <p><strong>Vendor:</strong> Distributor Name TBD</p>
-                      <p><strong>Payment Terms:</strong> Net 30</p>
-                    </div>
-                    <div class="col-6">
-                      <p><strong>Delivery Date:</strong> ${expectedDatePO}</p>
-                      <p><strong>PO Type:</strong> Standard</p>
-                    </div>
-                  </div>
-                </div>
-            `;
-            
-            const documentContent = `
-              <div class="document-view" style="background: white; padding: 40px; font-family: 'Courier New', monospace;">
-                <style>
-                  @media print {
-                    .no-print { display: none !important; }
-                    .document-view { padding: 20px !important; }
-                  }
-                </style>
-                
-                <div class="text-center mb-4 pb-3" style="border-bottom: 2px solid #000;">
-                  <h3 class="fw-bold mb-0">MedPlus Pharmacy</h3>
-                  <p class="mb-0 small">Back Order Fulfillment System</p>
-                </div>
-                
-                <div class="mb-4">
-                  <h4 class="fw-bold">${docType}</h4>
-                  <div class="row">
-                    <div class="col-6">
-                      <strong>Document ID:</strong> ${docId}
-                    </div>
-                    <div class="col-6 text-end">
-                      <strong>Date:</strong> ${currentDate}
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="mb-4">
-                  <h5 class="fw-bold mb-3">Order Details</h5>
-                  <table class="table table-bordered">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Product</th>
-                        <th>SKU</th>
-                        <th>Quantity</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>${productName}</td>
-                        <td>${sku}</td>
-                        <td>${qty}</td>
-                        <td><span class="badge bg-warning">Pending</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                
-                ${docType === 'Transfer Order' ? toSpecific : poSpecific}
-                
-                <div class="mt-5 pt-3" style="border-top: 1px solid #ccc;">
-                  <div class="row">
-                    <div class="col-6">
-                      <p class="small mb-0"><strong>Prepared By:</strong> System Auto-Generated</p>
-                      <p class="small mb-0"><strong>Date:</strong> ${currentDateTime}</p>
-                    </div>
-                    <div class="col-6 text-end">
-                      <p class="small mb-0"><strong>Document Status:</strong> Draft</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="text-center mt-4 no-print">
-                  <button class="btn btn-primary btn-lg" onclick="window.print()">
-                    <i class="bi bi-printer me-2"></i>Print Document
-                  </button>
-                  <button class="btn btn-secondary btn-lg ms-2" onclick="window.location.reload()">
-                    <i class="bi bi-x-circle me-2"></i>Close
-                  </button>
-                </div>
-              </div>
-            `;
-            
-            onOpenModal(docType + ': ' + docId, documentContent, 'modal-xl');
-          };
-          
-          onOpenModal(`Linked Documents - ${product.product}`, docsContent, 'modal-md');
-        } else {
+      case 'view_docs': {
+        const linked = product.linkedDocs || (product.linkedDoc ? [product.linkedDoc] : []);
+        if (!linked || linked.length === 0) {
           onShowToast('No linked documents found for this product', true);
+          break;
         }
-        break;
-        
+
+        const docsHTML = linked.map(doc => {
+          const docType = doc && doc.startsWith && doc.startsWith('TO') ? 'Transfer Order' : 'Purchase Order';
+          return `
+            <tr>
+              <td><strong>${doc}</strong></td>
+              <td><span class="badge ${doc && doc.startsWith && doc.startsWith('TO') ? 'bg-primary' : 'bg-success'}">${docType}</span></td>
+              <td><span class="badge bg-warning">Pending</span></td>
+              <td>
+                <button class="btn btn-sm btn-primary" onclick="(function(){ if(window.viewDocument) { window.viewDocument('${doc}', '${docType}', '${product.product}', '${product.sku}', ${product.qty || 0}); } })()">
+                  <i class="bi bi-eye me-1"></i>View Document
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        const docsContent = `
+          <div class="mb-3">
+            <p class="text-muted">Linked TO/PO documents for product <strong>${product.product}</strong></p>
+          </div>
+          <table class="table table-sm table-bordered table-hover">
+            <thead class="table-light">
+              <tr>
+                <th>Document ID</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>${docsHTML}</tbody>
+          </table>
+        `;
+
+        onOpenModal(`Linked Documents - ${product.product}`, docsContent, 'modal-md');
+      }
+      break;
       case 'create_manual_to':
         if (product.qtyPending > 0) {
           const newDoc = `TO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
@@ -760,18 +606,14 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     if (status === 'Pending Sourcing' || status === 'Pending') {
       // Draft Request / Pending - can trigger sourcing process
       actions.push({ label: 'Process Request', value: 'process_request' });
-      actions.push({ label: 'Reject / Reassign Order', value: 'reject_reassign' });
     } 
     else if (status === 'Partially Fulfilled') {
-      // Partially completed - can process remaining or close manually
-      actions.push({ label: 'Process Remaining', value: 'process_request' });
-      actions.push({ label: 'Reject / Reassign Order', value: 'reject_reassign' });
+      // Partially completed - manual closure option remains
       actions.push({ label: 'Manual Closure', value: 'manual_closure' });
     } 
     else if (status === 'Exception') {
       // Exception cases - mark for market purchase or manual intervention
       actions.push({ label: 'Mark for Market Purchase', value: 'market_purchase' });
-      actions.push({ label: 'Reject / Reassign Order', value: 'reject_reassign' });
       actions.push({ label: 'Manual Closure', value: 'manual_closure' });
     }
     else if (status === 'Completed') {
@@ -834,7 +676,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             <td><strong>${doc}</strong></td>
             <td><span class="badge ${doc.startsWith('TO') ? 'bg-primary' : 'bg-success'}">${docType}</span></td>
             <td><span class="badge bg-warning">Pending</span></td>
-            <td>${doc.startsWith('TO') ? 'Store Transfer' : 'Distributor Purchase'}</td>
             <td>
               <button class="btn btn-sm btn-primary" onclick="window.viewDocument('${doc}', '${docType}', '${productInfo.product}', '${productInfo.sku}', ${productInfo.qty})">
                 <i class="bi bi-eye me-1"></i>View Document
@@ -854,7 +695,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 <th>Document ID</th>
                 <th>Type</th>
                 <th>Status</th>
-                <th>Source</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -1493,7 +1333,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 <tr>
                   <th>Web Order ID</th>
                   <th>Status</th>
-                  <th>Source</th>
                   <th>Linked Doc</th>
                   <th>Created</th>
                   <th>Last Updated</th>
@@ -1504,7 +1343,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center text-secondary py-5">
+                    <td colSpan="7" className="text-center text-secondary py-5">
                       No orders found matching your criteria.
                     </td>
                   </tr>
@@ -1564,7 +1403,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                             {displayData.status || 'Unknown'}
                           </span>
                         </td>
-                        <td>{displayData.source || '-'}</td>
                         <td>
                           {displayData.linkedDoc && displayData.linkedDoc !== '-' && displayData.linkedDoc.trim() !== '' ? (
                             displayData.linkedDoc.split(',').map((docId, i) => (

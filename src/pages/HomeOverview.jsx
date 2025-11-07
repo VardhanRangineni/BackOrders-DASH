@@ -22,15 +22,69 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
         onNavigate('web-order');
         break;
       
+      case 'partial':
+        // Navigate to Web Order Backlog filtered by Partially Fulfilled
+        setWebOrderFilters({ statusFilter: 'Partially Fulfilled' });
+        onNavigate('web-order');
+        break;
+      
+      case 'completed':
+        // Navigate to Web Order Backlog filtered by Completed
+        setWebOrderFilters({ statusFilter: 'Completed' });
+        onNavigate('web-order');
+        break;
+      
+      case 'exception':
+        // Navigate to Web Order Backlog filtered by Exception/Rejected
+        setWebOrderFilters({ statusFilter: 'Exception' });
+        onNavigate('web-order');
+        break;
+      
       case 'sourcing':
         // Navigate to Sourcing View with no filters (show all)
         setSourcingFilters({});
         onNavigate('sourcing');
         break;
       
+      case 'pendingTO':
+        // Navigate to Sourcing View filtered by pending statuses
+        setSourcingFilters({ statusFilter: 'Draft' });
+        onNavigate('sourcing');
+        break;
+      
+      case 'fulfilledTO':
+        // Navigate to Sourcing View filtered by Fulfilled
+        setSourcingFilters({ statusFilter: 'Fulfilled' });
+        onNavigate('sourcing');
+        break;
+      
+      case 'rejectedTO':
+        // Navigate to Sourcing View filtered by Rejected
+        setSourcingFilters({ statusFilter: 'Rejected' });
+        onNavigate('sourcing');
+        break;
+      
       case 'retry':
         // Navigate to Sourcing View filtered by retry > 0
         setSourcingFilters({ showRetryOnly: true });
+        onNavigate('sourcing');
+        break;
+      
+      case 'marketPurchase':
+        // Navigate to Sourcing View filtered by Market Purchase
+        setSourcingFilters({ marketPurchaseOnly: true });
+        onNavigate('sourcing');
+        break;
+      
+      case 'marketPurchaseFulfilled':
+        // Navigate to Sourcing View filtered by Market Purchase Fulfilled
+        setSourcingFilters({ marketPurchaseOnly: true, statusFilter: 'Fulfilled' });
+        onNavigate('sourcing');
+        break;
+      
+      case 'marketPurchasePending':
+        // Navigate to Sourcing View filtered by Market Purchase Pending
+        setSourcingFilters({ marketPurchaseOnly: true, statusFilter: 'Draft' });
         onNavigate('sourcing');
         break;
       
@@ -275,25 +329,92 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false }
+      legend: { 
+        display: true,
+        position: 'bottom',
+        onClick: (e, legendItem, legend) => {
+          const index = legendItem.index;
+          const chart = legend.chart;
+          const meta = chart.getDatasetMeta(0);
+          
+          // Toggle visibility
+          meta.data[index].hidden = !meta.data[index].hidden;
+          chart.update();
+        },
+        labels: {
+          padding: 15,
+          generateLabels: (chart) => {
+            const data = chart.data;
+            if (data.labels.length && data.datasets.length) {
+              const meta = chart.getDatasetMeta(0);
+              return data.labels.map((label, i) => {
+                const value = data.datasets[0].data[i];
+                const hidden = meta.data[i] ? meta.data[i].hidden : false;
+                return {
+                  text: `${label}: ${value}`,
+                  fillStyle: data.datasets[0].backgroundColor[i],
+                  hidden: hidden,
+                  index: i,
+                  lineWidth: hidden ? 0 : 1
+                };
+              });
+            }
+            return [];
+          }
+        }
+      },
+      tooltip: {
+        enabled: true
+      }
     },
     scales: {
       y: { beginAtZero: true, ticks: { precision: 0 } }
-    },
-    onClick: (event, activeElements, chart) => {
-      // This will be overridden per chart
     }
+    // Note: onClick will be added per chart in the chart component directly
   };
 
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'bottom', labels: { padding: 20 } }
-    },
-    onClick: (event, activeElements, chart) => {
-      // This will be overridden per chart
+      legend: { 
+        position: 'bottom',
+        onClick: (e, legendItem, legend) => {
+          const index = legendItem.index;
+          const chart = legend.chart;
+          const meta = chart.getDatasetMeta(0);
+          
+          // Toggle visibility
+          meta.data[index].hidden = !meta.data[index].hidden;
+          chart.update();
+        },
+        labels: { 
+          padding: 20,
+          generateLabels: (chart) => {
+            const data = chart.data;
+            if (data.labels.length && data.datasets.length) {
+              const meta = chart.getDatasetMeta(0);
+              return data.labels.map((label, i) => {
+                const value = data.datasets[0].data[i];
+                const hidden = meta.data[i] ? meta.data[i].hidden : false;
+                return {
+                  text: `${label}: ${value}`,
+                  fillStyle: data.datasets[0].backgroundColor[i],
+                  hidden: hidden,
+                  index: i,
+                  lineWidth: hidden ? 0 : 1
+                };
+              });
+            }
+            return [];
+          }
+        } 
+      },
+      tooltip: {
+        enabled: true
+      }
     }
+    // Note: onClick will be added per chart in the chart component directly
   };
 
   return (
@@ -331,27 +452,36 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('partial')}>
               <Card.Body>
-                <div className="kpi-title">Partially Fulfilled</div>
+                <div className="kpi-title">
+                  Partially Fulfilled
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-info">{kpis.webOrders.partial}</div>
                 <div className="kpi-subtitle">In progress</div>
               </Card.Body>
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('completed')}>
               <Card.Body>
-                <div className="kpi-title">Completed Orders</div>
+                <div className="kpi-title">
+                  Completed Orders
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-success">{kpis.webOrders.completed}</div>
                 <div className="kpi-subtitle">Fully fulfilled</div>
               </Card.Body>
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('exception')}>
               <Card.Body>
-                <div className="kpi-title">Exception / Rejected</div>
+                <div className="kpi-title">
+                  Exception / Rejected
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-danger">{kpis.webOrders.exception}</div>
                 <div className="kpi-subtitle">Requires attention</div>
               </Card.Body>
@@ -397,27 +527,36 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('pendingTO')}>
               <Card.Body>
-                <div className="kpi-title">Pending TO/PO</div>
+                <div className="kpi-title">
+                  Pending TO/PO
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-warning">{kpis.sourcingOrders.pending}</div>
                 <div className="kpi-subtitle">In progress</div>
               </Card.Body>
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('fulfilledTO')}>
               <Card.Body>
-                <div className="kpi-title">Fulfilled TO/PO</div>
+                <div className="kpi-title">
+                  Fulfilled TO/PO
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-success">{kpis.sourcingOrders.fulfilled}</div>
                 <div className="kpi-subtitle">Completed docs</div>
               </Card.Body>
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('rejectedTO')}>
               <Card.Body>
-                <div className="kpi-title">Rejected / Cancelled</div>
+                <div className="kpi-title">
+                  Rejected / Cancelled
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-danger">{kpis.sourcingOrders.rejected}</div>
                 <div className="kpi-subtitle">Failed docs</div>
               </Card.Body>
@@ -463,9 +602,12 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
         </h4>
         <Row className="g-3 mb-3">
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('marketPurchase')}>
               <Card.Body>
-                <div className="kpi-title">Total Market Purchases</div>
+                <div className="kpi-title">
+                  Total Market Purchases
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value">{kpis.sourcingOrders.marketPurchaseCount}</div>
                 <div className="kpi-subtitle">External sourcing</div>
               </Card.Body>
@@ -481,18 +623,24 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('marketPurchaseFulfilled')}>
               <Card.Body>
-                <div className="kpi-title">MP Fulfilled</div>
+                <div className="kpi-title">
+                  MP Fulfilled
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-success">{kpis.sourcingOrders.marketPurchaseFulfilled}</div>
                 <div className="kpi-subtitle">Completed</div>
               </Card.Body>
             </Card>
           </Col>
           <Col xs={12} sm={6} lg={4} xl={3}>
-            <Card className="kpi-card h-100">
+            <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('marketPurchasePending')}>
               <Card.Body>
-                <div className="kpi-title">MP Pending</div>
+                <div className="kpi-title">
+                  MP Pending
+                  <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+                </div>
                 <div className="kpi-value text-info">{kpis.sourcingOrders.marketPurchasePending}</div>
                 <div className="kpi-subtitle">In progress</div>
               </Card.Body>

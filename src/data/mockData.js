@@ -284,6 +284,7 @@ export const sourcingOrders = [
         sku: 'MED-PAR-500',
         qtyReq: 500,
         qtyFulfilled: 300,
+        qtyPending: 200,
         status: 'Partial'
       },
       {
@@ -292,6 +293,7 @@ export const sourcingOrders = [
         sku: 'MED-ASP-75',
         qtyReq: 200,
         qtyFulfilled: 200,
+        qtyPending: 0,
         status: 'Fulfilled'
       }
     ],
@@ -323,6 +325,7 @@ export const sourcingOrders = [
         sku: 'MED-PAR-500',
         qtyReq: 200,
         qtyFulfilled: 0,
+        qtyPending: 200,
         status: 'Pending',
         remarks: 'Remaining qty from TO-2025-001'
       }
@@ -355,6 +358,7 @@ export const sourcingOrders = [
         sku: 'MED-IBU-400',
         qtyReq: 150,
         qtyFulfilled: 0,
+        qtyPending: 150,
         status: 'Accepted'
       },
       {
@@ -363,6 +367,7 @@ export const sourcingOrders = [
         sku: 'MED-DOL-650',
         qtyReq: 300,
         qtyFulfilled: 0,
+        qtyPending: 300,
         status: 'Accepted'
       }
     ],
@@ -394,6 +399,7 @@ export const sourcingOrders = [
         sku: 'MED-VIT-D3',
         qtyReq: 100,
         qtyFulfilled: 100,
+        qtyPending: 0,
         status: 'Fulfilled'
       },
       {
@@ -402,6 +408,7 @@ export const sourcingOrders = [
         sku: 'MED-CAL-500',
         qtyReq: 150,
         qtyFulfilled: 150,
+        qtyPending: 0,
         status: 'Fulfilled'
       }
     ],
@@ -433,6 +440,7 @@ export const sourcingOrders = [
         sku: 'MED-AMX-500',
         qtyReq: 100,
         qtyFulfilled: 100,
+        qtyPending: 0,
         status: 'Fulfilled'
       }
     ],
@@ -464,6 +472,7 @@ export const sourcingOrders = [
         sku: 'MED-CRO-ADV',
         qtyReq: 300,
         qtyFulfilled: 0,
+        qtyPending: 300,
         status: 'Rejected',
         remarks: 'Stock unavailable at store'
       }
@@ -496,6 +505,7 @@ export const sourcingOrders = [
         sku: 'MED-MET-500',
         qtyReq: 100,
         qtyFulfilled: 100,
+        qtyPending: 0,
         status: 'Fulfilled'
       }
     ],
@@ -527,6 +537,7 @@ export const sourcingOrders = [
         sku: 'MED-CET-10',
         qtyReq: 400,
         qtyFulfilled: 200,
+        qtyPending: 200,
         status: 'Partial'
       }
     ],
@@ -558,6 +569,7 @@ export const sourcingOrders = [
         sku: 'MED-CET-10',
         qtyReq: 200,
         qtyFulfilled: 0,
+        qtyPending: 200,
         status: 'In Dispatch',
         remarks: 'Remaining qty from TO-2025-015'
       }
@@ -579,10 +591,10 @@ export const sourcingOrders = [
     docId: 'MP-2025-001',
     webOrder: 'WO-2025-005',
     batchId: 'BATCH-003',
-    source: 'Local Market Vendor',
+  source: 'Market Purchase',
     destination: 'Central Warehouse',
     status: 'Approved',
-    trackingStatus: 'Vendor Quote Approved',
+  trackingStatus: 'Market Quote Approved',
     items: [
       {
         lineId: 'WOL-005-1',
@@ -590,6 +602,7 @@ export const sourcingOrders = [
         sku: 'MED-CRO-ADV',
         qtyReq: 300,
         qtyFulfilled: 0,
+        qtyPending: 300,
         status: 'Approved',
         remarks: 'Market purchase approved after store rejection'
       }
@@ -601,12 +614,12 @@ export const sourcingOrders = [
     lastUpdated: '2025-10-26 14:00:00',
     createdBy: 'System (Auto-escalation)',
     lastActionedBy: 'User-Admin-Purchase',
-    remarks: 'Escalated to market purchase after 3 failed attempts (Store rejected). Awaiting vendor confirmation.',
+  remarks: 'Escalated to market purchase after 3 failed attempts (Store rejected). Awaiting market confirmation.',
     popupShown: 0,
     popupSkipped: 0,
     marketPurchase: true,
     estimatedCost: 4500,
-    vendor: 'Market Vendor MV-001'
+  vendor: 'Market'
   },
   {
     id: 'DRAFT-2025-011',
@@ -614,10 +627,10 @@ export const sourcingOrders = [
     docId: 'MP-2025-002',
     webOrder: 'WO-2025-005',
     batchId: 'BATCH-003',
-    source: 'Local Market Vendor',
+  source: 'Market Purchase',
     destination: 'Central Warehouse',
     status: 'In Progress',
-    trackingStatus: 'Vendor Negotiation in Progress',
+  trackingStatus: 'Market Negotiation in Progress',
     items: [
       {
         lineId: 'WOL-005-2',
@@ -625,6 +638,7 @@ export const sourcingOrders = [
         sku: 'MED-VCK-VAP',
         qtyReq: 150,
         qtyFulfilled: 0,
+        qtyPending: 150,
         status: 'In Progress',
         remarks: 'Market purchase in progress'
       }
@@ -636,12 +650,12 @@ export const sourcingOrders = [
     lastUpdated: '2025-10-27 10:00:00',
     createdBy: 'System (Auto-escalation)',
     lastActionedBy: 'User-Purchase-Team',
-    remarks: 'Market purchase in progress. Vendor negotiation ongoing. Items unavailable at warehouse, stores, and distributors.',
+  remarks: 'Market purchase in progress. Market negotiation ongoing. Items unavailable at warehouse, stores, and distributors.',
     popupShown: 0,
     popupSkipped: 0,
     marketPurchase: true,
     estimatedCost: 2250,
-    vendor: 'Market Vendor MV-002'
+  vendor: 'Market'
   },
   {
     id: 'DRAFT-2025-012',
@@ -649,7 +663,7 @@ export const sourcingOrders = [
     docId: 'MP-2025-003',
     webOrder: 'WO-2025-010',
     batchId: 'BATCH-005',
-    source: 'Local Market Vendor',
+  source: 'Market Purchase',
     destination: 'Central Warehouse',
     status: 'Fulfilled',
     trackingStatus: 'Market Purchase Completed',
@@ -660,6 +674,7 @@ export const sourcingOrders = [
         sku: 'MED-OMP-20',
         qtyReq: 150,
         qtyFulfilled: 150,
+        qtyPending: 0,
         status: 'Fulfilled',
         remarks: 'Market purchase completed successfully'
       }
@@ -671,13 +686,13 @@ export const sourcingOrders = [
     lastUpdated: '2025-10-30 16:00:00',
     createdBy: 'System (Auto-escalation)',
     lastActionedBy: 'User-Purchase-Team',
-    remarks: 'Market purchase completed after 2 retries. Product unavailable in all regular channels. Successfully procured from local vendor.',
+  remarks: 'Market purchase completed after 2 retries. Product unavailable in all regular channels. Successfully procured from market source.',
     popupShown: 0,
     popupSkipped: 0,
     marketPurchase: true,
     estimatedCost: 3000,
     actualCost: 3150,
-    vendor: 'Market Vendor MV-001'
+  vendor: 'Market'
   },
   {
     id: 'DRAFT-2025-013',
@@ -696,6 +711,7 @@ export const sourcingOrders = [
         sku: 'MED-AZI-500',
         qtyReq: 200,
         qtyFulfilled: 0,
+        qtyPending: 200,
         status: 'Rejected',
         remarks: 'Distributor out of stock'
       }
@@ -718,10 +734,10 @@ export const sourcingOrders = [
     docId: 'MP-2025-004',
     webOrder: 'WO-2025-009',
     batchId: 'BATCH-006-MP',
-    source: 'Local Market Vendor',
+  source: 'Market Purchase',
     destination: 'Central Warehouse',
     status: 'Approved',
-    trackingStatus: 'Vendor Quote Received',
+  trackingStatus: 'Market Quote Received',
     items: [
       {
         lineId: 'WOL-009-1',
@@ -729,6 +745,7 @@ export const sourcingOrders = [
         sku: 'MED-AZI-500',
         qtyReq: 200,
         qtyFulfilled: 0,
+        qtyPending: 200,
         status: 'Approved',
         remarks: 'Escalated to market purchase after distributor rejection'
       }
@@ -740,11 +757,97 @@ export const sourcingOrders = [
     lastUpdated: '2025-11-01 14:00:00',
     createdBy: 'System (Auto-escalation)',
     lastActionedBy: 'User-Admin-Purchase',
-    remarks: 'Auto-escalated to market purchase after PO rejection. Vendor quote received. Awaiting approval.',
+  remarks: 'Auto-escalated to market purchase after PO rejection. Market quote received. Awaiting approval.',
     popupShown: 0,
     popupSkipped: 0,
     marketPurchase: true,
     estimatedCost: 5000,
-    vendor: 'Market Vendor MV-003'
+  vendor: 'Market'
+  },
+  {
+    id: 'DRAFT-2025-015',
+    type: 'TO',
+    docId: 'TO-2025-020',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-007',
+    source: 'Store S-DEL-01 (Delhi)',
+    destination: 'Central Warehouse',
+    status: 'Draft',
+    trackingStatus: 'Draft Created',
+    items: [
+      {
+        lineId: 'WOL-011-1',
+        product: 'Ibuprofen 400mg',
+        sku: 'MED-IBU-400',
+        qtyReq: 100,
+        qtyFulfilled: 0,
+        qtyPending: 100,
+        status: 'Pending',
+        remarks: 'New order from Delhi store'
+      },
+      {
+        lineId: 'WOL-011-2',
+        product: 'Aspirin 75mg',
+        sku: 'MED-ASP-75',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        qtyPending: 150,
+        status: 'Pending',
+        remarks: 'New order from Delhi store'
+      }
+    ],
+    qtyReq: 250,
+    qtyFulfilled: 0,
+    retry: 0,
+    created: '2025-11-02 10:00:00',
+    lastUpdated: '2025-11-02 10:00:00',
+    createdBy: 'System Scheduler',
+    lastActionedBy: 'System Scheduler',
+    remarks: 'New draft created for Delhi store order',
+    popupShown: 0,
+    popupSkipped: 0
+  },
+  {
+    id: 'DRAFT-2025-016',
+    type: 'PO',
+    docId: 'PO-2025-005',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-008',
+    source: 'MedPlus Distributor DIST-MP-004',
+    destination: 'Central Warehouse',
+    status: 'Accepted',
+    trackingStatus: 'SO Created - Awaiting Dispatch',
+    items: [
+      {
+        lineId: 'WOL-012-1',
+        product: 'Dolo 650mg',
+        sku: 'MED-DOL-650',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        qtyPending: 200,
+        status: 'Accepted',
+        remarks: 'Additional order for Dolo 650mg'
+      },
+      {
+        lineId: 'WOL-012-2',
+        product: 'Paracetamol 500mg',
+        sku: 'MED-PAR-500',
+        qtyReq: 250,
+        qtyFulfilled: 0,
+        qtyPending: 250,
+        status: 'Accepted',
+        remarks: 'High demand product reorder'
+      }
+    ],
+    qtyReq: 450,
+    qtyFulfilled: 0,
+    retry: 0,
+    created: '2025-11-02 14:00:00',
+    lastUpdated: '2025-11-02 15:30:00',
+    createdBy: 'System Scheduler',
+    lastActionedBy: 'User-MedPlus',
+    remarks: 'SO created. Awaiting dispatch for high-demand products',
+    popupShown: 0,
+    popupSkipped: 0
   }
 ];
