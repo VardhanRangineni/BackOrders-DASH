@@ -17,8 +17,8 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
         break;
       
       case 'pending':
-        // Navigate to Web Order Backlog filtered by Pending Sourcing
-        setWebOrderFilters({ statusFilter: 'Pending Sourcing' });
+        // Navigate to Web Order Backlog filtered by Approved
+        setWebOrderFilters({ statusFilter: 'Approved' });
         onNavigate('web-order');
         break;
       
@@ -29,8 +29,8 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
         break;
       
       case 'completed':
-        // Navigate to Web Order Backlog filtered by Completed
-        setWebOrderFilters({ statusFilter: 'Completed' });
+        // Navigate to Web Order Backlog filtered by Fulfilled
+        setWebOrderFilters({ statusFilter: 'Fulfilled' });
         onNavigate('web-order');
         break;
       
@@ -48,13 +48,13 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
       
       case 'pendingTO':
         // Navigate to Sourcing View filtered by pending statuses
-        setSourcingFilters({ statusFilter: 'Draft' });
+        setSourcingFilters({ statusFilter: 'Generated' });
         onNavigate('sourcing');
         break;
       
       case 'fulfilledTO':
         // Navigate to Sourcing View filtered by Fulfilled
-        setSourcingFilters({ statusFilter: 'Fulfilled' });
+        setSourcingFilters({ statusFilter: 'Received' });
         onNavigate('sourcing');
         break;
       
@@ -78,13 +78,13 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
       
       case 'marketPurchaseFulfilled':
         // Navigate to Sourcing View filtered by Market Purchase Fulfilled
-        setSourcingFilters({ marketPurchaseOnly: true, statusFilter: 'Fulfilled' });
+        setSourcingFilters({ marketPurchaseOnly: true, statusFilter: 'Received' });
         onNavigate('sourcing');
         break;
       
       case 'marketPurchasePending':
         // Navigate to Sourcing View filtered by Market Purchase Pending
-        setSourcingFilters({ marketPurchaseOnly: true, statusFilter: 'Draft' });
+        setSourcingFilters({ marketPurchaseOnly: true, statusFilter: 'Generated' });
         onNavigate('sourcing');
         break;
       
@@ -102,8 +102,8 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
       
       switch(chartType) {
         case 'ageing':
-          // Navigate to Web Order Backlog with Pending Sourcing filter
-          setWebOrderFilters({ statusFilter: 'Pending Sourcing' });
+          // Navigate to Web Order Backlog with Approved filter
+          setWebOrderFilters({ statusFilter: 'Approved' });
           onNavigate('web-order');
           break;
           
@@ -128,14 +128,14 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
           
         case 'sourcingStatus':
           // Navigate to Sourcing View with status filter
-          const statuses = ['Draft', 'Accepted', 'In Dispatch', 'Fulfilled', 'Rejected'];
+          const statuses = ['Generated', 'Dispatched', 'In transit', 'Received'];
           setSourcingFilters({ statusFilter: statuses[clickedIndex] });
           onNavigate('sourcing');
           break;
           
         case 'marketPurchase':
           // Navigate to Sourcing View with market purchase and status filter
-          const mpStatuses = ['Approved', 'In Progress', 'Fulfilled'];
+          const mpStatuses = ['Generated', 'Dispatched', 'Received'];
           setSourcingFilters({ marketPurchaseOnly: true, statusFilter: mpStatuses[clickedIndex] });
           onNavigate('sourcing');
           break;
@@ -147,12 +147,12 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
   };
 
   const calculateKPIs = () => {
-    // Web Order KPIs
+    // Web Order KPIs (using new status taxonomy: Approved, Partially Fulfilled, Fulfilled)
     const total = webOrders.length;
-    const completed = webOrders.filter(o => (o.overallStatus || o.status) === 'Completed');
+    const completed = webOrders.filter(o => (o.overallStatus || o.status) === 'Fulfilled');
     const fulfilledOrders = webOrders.filter(o => {
       const status = o.overallStatus || o.status;
-      return status === 'Completed' || status === 'Partially Fulfilled';
+      return status === 'Fulfilled' || status === 'Partially Fulfilled';
     });
     
     let totalDays = 0;
@@ -162,8 +162,8 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
       totalDays += dateDiffInDays(createdDate, updatedDate);
     });
 
-    // Sourcing Order KPIs
-    const fulfilled = sourcingOrders.filter(o => o.status === 'Fulfilled');
+    // Sourcing Order KPIs (using new recordStatus: Draft Created, Partially Fulfilled, Fulfilled)
+    const fulfilled = sourcingOrders.filter(o => (o.recordStatus || o.status) === 'Fulfilled');
     const fulfilledTOs = fulfilled.filter(o => o.type === 'TO');
     const fulfilledPOs = fulfilled.filter(o => o.type === 'PO');
     
@@ -174,21 +174,24 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
     fulfilledPOs.forEach(o => { totalHoursPO += dateDiffInHours(o.created, o.lastUpdated); });
 
     const retriedOrders = sourcingOrders.filter(o => o.retry > 0);
-    const successfulRetries = retriedOrders.filter(o => o.status === 'Fulfilled');
+    const successfulRetries = retriedOrders.filter(o => (o.recordStatus || o.status) === 'Fulfilled');
     const retryRate = retriedOrders.length > 0 ? ((successfulRetries.length / retriedOrders.length) * 100).toFixed(0) : 0;
 
     // Market Purchase Analytics
-    const marketPurchaseOrders = sourcingOrders.filter(o => o.marketPurchase === true);
+    const marketPurchaseOrders = sourcingOrders.filter(o => o.type === 'Market Purchase' || o.marketPurchase === true);
     const marketPurchaseCount = marketPurchaseOrders.length;
     const marketPurchasePercentage = sourcingOrders.length > 0 ? ((marketPurchaseCount / sourcingOrders.length) * 100).toFixed(1) : 0;
-    const marketPurchaseFulfilled = marketPurchaseOrders.filter(o => o.status === 'Fulfilled').length;
-    const marketPurchasePending = marketPurchaseOrders.filter(o => o.status !== 'Fulfilled' && o.status !== 'Rejected').length;
+    const marketPurchaseFulfilled = marketPurchaseOrders.filter(o => (o.recordStatus || o.status) === 'Fulfilled').length;
+    const marketPurchasePending = marketPurchaseOrders.filter(o => {
+      const status = o.recordStatus || o.status;
+      return status !== 'Fulfilled' && status !== 'Rejected';
+    }).length;
 
     return {
       // Web Order KPIs
       webOrders: {
         total,
-        pending: webOrders.filter(o => (o.overallStatus || o.status) === 'Pending Sourcing').length,
+        pending: webOrders.filter(o => (o.overallStatus || o.status) === 'Approved').length,
         partial: webOrders.filter(o => (o.overallStatus || o.status) === 'Partially Fulfilled').length,
         completed: completed.length,
         exception: webOrders.filter(o => {
@@ -201,9 +204,15 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
       // Sourcing Order KPIs
       sourcingOrders: {
         total: sourcingOrders.length,
-        pending: sourcingOrders.filter(o => o.status === 'Draft' || o.status === 'Accepted' || o.status === 'In Dispatch').length,
+        pending: sourcingOrders.filter(o => {
+          const status = o.recordStatus || o.status;
+          return status === 'Draft Created';
+        }).length,
         fulfilled: fulfilled.length,
-        rejected: sourcingOrders.filter(o => o.status === 'Rejected' || o.status === 'Cancelled').length,
+        rejected: sourcingOrders.filter(o => {
+          const status = o.recordStatus || o.status;
+          return status === 'Rejected' || status === 'Cancelled';
+        }).length,
         avgTimeTo: fulfilledTOs.length > 0 ? (totalHoursTO / fulfilledTOs.length).toFixed(1) : 0,
         avgTimePo: fulfilledPOs.length > 0 ? (totalHoursPO / fulfilledPOs.length).toFixed(1) : 0,
         retryRate,
@@ -220,7 +229,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
   // Ageing Chart Data
   const pendingOrders = webOrders.filter(o => {
     const status = o.overallStatus || o.status;
-    return status === 'Pending Sourcing' || status === 'Partially Fulfilled';
+    return status === 'Approved' || status === 'Partially Fulfilled';
   });
   const ageingData = {
     labels: ['0-3 Days', '3-7 Days', '>7 Days'],
@@ -238,26 +247,26 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
 
   // Source Chart Data
   const sourceData = {
-    labels: ['Store (TO)', 'Distributor (PO)', 'Pending'],
+    labels: ['Store (TO)', 'Distributor (PO)', 'Market/Other'],
     datasets: [{
       data: [
         webOrders.filter(o => {
           if (o.items) {
-            return o.items.some(item => item.source && item.source.includes('Store'));
+            return o.items.some(item => item.sourceType === 'Store' || (item.source && (item.source.includes('S-') || item.source.includes('Store'))));
           }
-          return o.source && o.source.includes('Store');
+          return o.source && (o.source.includes('S-') || o.source.includes('Store'));
         }).length,
         webOrders.filter(o => {
           if (o.items) {
-            return o.items.some(item => item.source && item.source.includes('Distributor'));
+            return o.items.some(item => item.sourceType === 'Distributor' || (item.source && item.source.includes('DIST')));
           }
-          return o.source && o.source.includes('Distributor');
+          return o.source && o.source.includes('DIST');
         }).length,
         webOrders.filter(o => {
           if (o.items) {
-            return o.items.some(item => item.source && item.source.includes('Pending'));
+            return o.items.some(item => !item.sourceType || item.sourceType === null || item.source === '' || item.source === 'Market');
           }
-          return o.source && o.source.includes('Pending');
+          return !o.source || o.source === '' || o.source === 'Market';
         }).length
       ],
       backgroundColor: ['rgba(59, 130, 246, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(245, 158, 11, 0.7)'],
@@ -272,7 +281,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
       data: [
         sourcingOrders.filter(o => o.type === 'TO').length,
         sourcingOrders.filter(o => o.type === 'PO').length,
-        sourcingOrders.filter(o => o.marketPurchase === true).length
+        sourcingOrders.filter(o => o.type === 'Market Purchase' || o.marketPurchase === true).length
       ],
       backgroundColor: [
         'rgba(59, 130, 246, 0.7)', 
@@ -283,24 +292,41 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
     }]
   };
 
-  // Sourcing Status Data
+  // Sourcing Status Data (using new TO/PO Status values)
   const sourcingStatusData = {
-    labels: ['Draft', 'Accepted', 'In Dispatch', 'Fulfilled', 'Rejected'],
+    labels: ['Generated', 'Dispatched', 'In transit', 'Received'],
     datasets: [{
-      label: 'Sourcing Status',
+      label: 'TO/PO Status',
       data: [
-        sourcingOrders.filter(o => o.status === 'Draft').length,
-        sourcingOrders.filter(o => o.status === 'Accepted').length,
-        sourcingOrders.filter(o => o.status === 'In Dispatch').length,
-        sourcingOrders.filter(o => o.status === 'Fulfilled').length,
-        sourcingOrders.filter(o => o.status === 'Rejected').length
+        sourcingOrders.filter(o => (o.status || o.trackingStatus) === 'Generated').length,
+        sourcingOrders.filter(o => (o.status || o.trackingStatus) === 'Dispatched').length,
+        sourcingOrders.filter(o => (o.status || o.trackingStatus) === 'In transit').length,
+        sourcingOrders.filter(o => (o.status || o.trackingStatus) === 'Received').length
       ],
       backgroundColor: [
-        'rgba(245, 158, 11, 0.7)',
+        'rgba(156, 163, 175, 0.7)',
         'rgba(59, 130, 246, 0.7)',
         'rgba(139, 92, 246, 0.7)',
-        'rgba(16, 185, 129, 0.7)',
-        'rgba(220, 38, 38, 0.7)'
+        'rgba(16, 185, 129, 0.7)'
+      ],
+      borderWidth: 1
+    }]
+  };
+
+  // Record Status Data (Draft Created, Partially Fulfilled, Fulfilled)
+  const recordStatusData = {
+    labels: ['Draft Created', 'Partially Fulfilled', 'Fulfilled'],
+    datasets: [{
+      label: 'Record Status',
+      data: [
+        sourcingOrders.filter(o => (o.recordStatus || o.status) === 'Draft Created').length,
+        sourcingOrders.filter(o => (o.recordStatus || o.status) === 'Partially Fulfilled').length,
+        sourcingOrders.filter(o => (o.recordStatus || o.status) === 'Fulfilled').length
+      ],
+      backgroundColor: [
+        'rgba(156, 163, 175, 0.7)',
+        'rgba(59, 130, 246, 0.7)',
+        'rgba(16, 185, 129, 0.7)'
       ],
       borderWidth: 1
     }]
@@ -308,17 +334,17 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
 
   // Market Purchase Data
   const marketPurchaseData = {
-    labels: ['Approved', 'In Progress', 'Fulfilled'],
+    labels: ['Generated', 'In transit', 'Received'],
     datasets: [{
       label: 'Market Purchase Status',
       data: [
-        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'Approved').length,
-        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'In Progress').length,
-        sourcingOrders.filter(o => o.marketPurchase === true && o.status === 'Fulfilled').length
+        sourcingOrders.filter(o => (o.type === 'Market Purchase' || o.marketPurchase === true) && (o.status || o.trackingStatus) === 'Generated').length,
+        sourcingOrders.filter(o => (o.type === 'Market Purchase' || o.marketPurchase === true) && (o.status || o.trackingStatus) === 'In transit').length,
+        sourcingOrders.filter(o => (o.type === 'Market Purchase' || o.marketPurchase === true) && (o.status || o.trackingStatus) === 'Received').length
       ],
       backgroundColor: [
-        'rgba(59, 130, 246, 0.7)',
         'rgba(245, 158, 11, 0.7)',
+        'rgba(59, 130, 246, 0.7)',
         'rgba(16, 185, 129, 0.7)'
       ],
       borderWidth: 1
@@ -431,7 +457,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
             <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('total')}>
               <Card.Body>
                 <div className="kpi-title">
-                  Total Web Orders
+                  Total Back Orders
                   <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
                 </div>
                 <div className="kpi-value">{kpis.webOrders.total}</div>
@@ -455,7 +481,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
             <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('partial')}>
               <Card.Body>
                 <div className="kpi-title">
-                  Partially Fulfilled
+                  Partially Fulfilled Orders
                   <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
                 </div>
                 <div className="kpi-value text-info">{kpis.webOrders.partial}</div>
@@ -467,7 +493,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
             <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('completed')}>
               <Card.Body>
                 <div className="kpi-title">
-                  Completed Orders
+                  Fulfilled Orders
                   <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
                 </div>
                 <div className="kpi-value text-success">{kpis.webOrders.completed}</div>
@@ -479,7 +505,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
             <Card className="kpi-card clickable-card h-100" onClick={() => handleCardClick('exception')}>
               <Card.Body>
                 <div className="kpi-title">
-                  Exception / Rejected
+                  Rejected / Exception Orders
                   <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
                 </div>
                 <div className="kpi-value text-danger">{kpis.webOrders.exception}</div>
@@ -723,7 +749,7 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
           <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>
             <Card.Body>
               <h5 className="fw-bold mb-3">
-                Sourcing Status Distribution
+                TO/PO Status Distribution
                 <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
               </h5>
               <div className="chart-wrapper" style={{ height: '320px' }}>
@@ -735,7 +761,29 @@ const HomeOverview = ({ webOrders, sourcingOrders, onNavigate, setWebOrderFilter
                   }} 
                 />
               </div>
-              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click bars to filter by status</p>
+              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Click bars to filter by TO/PO status</p>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+      <Row className="g-3 mt-2">
+        <Col xs={12} lg={6}>
+          <Card className="chart-container clickable-card h-100" style={{ cursor: 'pointer' }}>
+            <Card.Body>
+              <h5 className="fw-bold mb-3">
+                Record Status Distribution
+                <i className="bi bi-box-arrow-up-right ms-2 text-muted" style={{ fontSize: '0.875rem' }}></i>
+              </h5>
+              <div className="chart-wrapper" style={{ height: '320px' }}>
+                <Bar 
+                  data={recordStatusData} 
+                  options={{
+                    ...chartOptions,
+                    onClick: (event, activeElements, chart) => handleChartClick(event, chart, 'recordStatus')
+                  }} 
+                />
+              </div>
+              <p className="text-muted text-center mt-2 mb-0" style={{ fontSize: '0.75rem' }}>Draft, Partial & Fulfilled records</p>
             </Card.Body>
           </Card>
         </Col>

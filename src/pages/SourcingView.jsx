@@ -5,13 +5,24 @@ import { exportToCSV, getStatusBadgeClass } from '../utils/utils';
 function getTrackingBadgeClass(status) {
   if (!status) return 'bg-secondary';
   
-  // TO statuses
+  // Record Status (Draft Created, Partially Fulfilled, Fulfilled)
+  if (status === 'Draft Created') return 'bg-secondary';
+  if (status === 'Partially Fulfilled') return 'bg-info';
+  if (status === 'Fulfilled') return 'bg-success';
+  
+  // TO/PO Status (Generated, Dispatched, In transit, Received)
+  if (status === 'Generated') return 'bg-secondary';
+  if (status === 'Dispatched') return 'bg-primary';
+  if (status === 'In transit') return 'bg-info';
+  if (status === 'Received') return 'bg-success';
+  
+  // Legacy TO statuses
   if (status.includes('TO Generated')) return 'bg-primary';
   if (status.includes('TO In Transit')) return 'bg-info';
   if (status.includes('TO Received') || status.includes('TO Partially Received')) return 'bg-success';
   if (status.includes('TO Rejected')) return 'bg-danger';
   
-  // PO statuses
+  // Legacy PO statuses
   if (status.includes('PO Generated')) return 'bg-purple';
   if (status.includes('SO Created') || status.includes('Awaiting Dispatch')) return 'bg-primary';
   if (status.includes('PO In Transit')) return 'bg-info';
@@ -24,10 +35,9 @@ function getTrackingBadgeClass(status) {
   if (status.includes('Market Purchase Completed')) return 'bg-success';
   
   // General statuses
-  if (status === 'Draft Created') return 'bg-secondary';
   if (status === 'Draft Approved') return 'bg-primary';
-  if (status === 'Fulfilled' || status.includes('Completed')) return 'bg-success';
-  if (status === 'Partially Fulfilled' || status.includes('Partial')) return 'bg-info';
+  if (status.includes('Completed')) return 'bg-success';
+  if (status.includes('Partial')) return 'bg-info';
   if (status === 'Rejected') return 'bg-danger';
   
   return 'bg-secondary';
@@ -46,13 +56,10 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
   useEffect(() => {
     if (highlightedTOPO) {
-      console.log('SourcingView received highlightedTOPO:', highlightedTOPO);
       setTimeout(() => {
         if (highlightedRowRef.current) {
-          console.log('Scrolling to highlighted row');
           highlightedRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
-          console.log('No highlighted row ref found');
         }
       }, 100);
       const timer = setTimeout(() => setHighlightedTOPO(null), 1200);
@@ -62,23 +69,72 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
   // Handler to show products of selected drafts
   const handleShowProducts = () => {
-    // Find selected orders and collect their items that are not fully fulfilled
+    buildProductsToShow();
+    setSelectedProducts([]);
+    setShowProductsModal(true);
+  };
+
+  // Helper to build productsToShow from latest sourcingOrders
+  const buildProductsToShow = () => {
+    // Always recalculate filteredOrders from latest sourcingOrders
+    const searchLower = searchTerm.toLowerCase();
+    const filteredOrders = sourcingOrders.filter(order => {
+      const matchesSearch = !searchTerm || 
+        order.id.toLowerCase().includes(searchLower) || 
+        order.docId.toLowerCase().includes(searchLower) || 
+        order.webOrder.toLowerCase().includes(searchLower) ||
+        order.source?.toLowerCase().includes(searchLower) ||
+        order.destination?.toLowerCase().includes(searchLower) ||
+        (order.items && order.items.some(item => 
+          item.product?.toLowerCase().includes(searchLower) ||
+          item.sku?.toLowerCase().includes(searchLower)
+        ));
+      const matchesType = (typeFilter === 'All' || order.type === typeFilter);
+      const matchesStatus = (statusFilter === 'All' || order.status === statusFilter);
+      const matchesSourceType = (sourceTypeFilter === 'All' || 
+        (sourceTypeFilter === 'Store' && order.type === 'TO') ||
+        (sourceTypeFilter === 'Distributor' && order.type === 'PO'));
+      return matchesSearch && matchesType && matchesStatus && matchesSourceType;
+    });
     const selectedOrders = filteredOrders.filter(order => selectedRows.includes(order.id));
     
-    // Consolidate products by SKU
-    const productMap = new Map();
+    // Build a map of webOrder + SKU -> latest retry order
+    // This helps us filter out old partially fulfilled drafts when a new retry draft exists
+    const retryMap = new Map();
+    sourcingOrders.forEach(order => {
+      if (order.retry > 0 && order.items) {
+        order.items.forEach(item => {
+          const key = `${order.webOrder}__${item.sku}`;
+          const existing = retryMap.get(key);
+          if (!existing || order.retry > existing.retry || 
+              (order.retry === existing.retry && new Date(order.created) > new Date(existing.created))) {
+            retryMap.set(key, order);
+          }
+        });
+      }
+    });
     
+    const productMap = new Map();
     selectedOrders.forEach(order => {
       (order.items || []).forEach(item => {
         const req = item.qtyReq ?? item.qty ?? 0;
         const fulfilled = item.qtyFulfilled ?? 0;
         const pending = req - fulfilled;
         
+        // Skip this order's items if:
+        // 1. It has pending quantity (partial fulfillment) AND
+        // 2. A newer retry draft exists for the same webOrder + SKU
+        const key = `${order.webOrder}__${item.sku}`;
+        const newerRetryExists = retryMap.has(key) && retryMap.get(key).id !== order.id;
+        
+        if (newerRetryExists && pending > 0) {
+          // Don't include this item in unfulfilled products since a newer retry draft will handle it
+          return;
+        }
+        
         if (pending > 0 && item.status !== 'Fulfilled') {
           const sku = item.sku;
-          
           if (productMap.has(sku)) {
-            // Product already exists, sum quantities and add draft ID
             const existing = productMap.get(sku);
             existing.qtyReq += req;
             existing.qtyFulfilled += fulfilled;
@@ -88,7 +144,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
             existing.statuses.push(item.status);
             existing.statusByDraft[order.id] = item.status;
           } else {
-            // New product, create entry
             productMap.set(sku, {
               ...item,
               qtyReq: req,
@@ -103,19 +158,25 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         }
       });
     });
-    
-    // Convert map to array
-    const consolidatedProducts = Array.from(productMap.values());
-    
-    setProductsToShow(consolidatedProducts);
-    setSelectedProducts([]);
-    setShowProductsModal(true);
+    setProductsToShow(Array.from(productMap.values()));
   };
+
+
 
   // Product selection handlers
   const handleSelectAllProducts = (e) => {
     if (e.target.checked) {
-      setSelectedProducts(productsToShow.map((_, idx) => idx));
+      // Only select products that have "NA internally" or "Market Purchase Initiated" status
+      const naInternallyIndexes = productsToShow
+        .map((item, idx) => {
+          const hasNAInternally = (item.statuses || []).some(status => 
+            status === 'NA internally' || status === 'Market Purchase Initiated'
+          );
+          return hasNAInternally ? idx : null;
+        })
+        .filter(idx => idx !== null);
+      
+      setSelectedProducts(naInternallyIndexes);
     } else {
       setSelectedProducts([]);
     }
@@ -156,30 +217,105 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       return;
     }
 
-    const updatedProducts = [...productsToShow];
-    
+    // Filter to only process NA internally products
+    const validSelectedProducts = currentProductIndex === 'bulk' 
+      ? selectedProducts.filter(idx => {
+          const item = productsToShow[idx];
+          return (item.statuses || []).some(status => 
+            status === 'NA internally' || status === 'Market Purchase Initiated'
+          );
+        })
+      : [currentProductIndex];
+
+    // Check if current single product is NA internally
+    if (currentProductIndex !== 'bulk') {
+      const item = productsToShow[currentProductIndex];
+      const hasNAInternally = (item.statuses || []).some(status => 
+        status === 'NA internally' || status === 'Market Purchase Initiated'
+      );
+      if (!hasNAInternally) {
+        onShowToast('Reassign action is only available for NA internally products');
+        return;
+      }
+    }
+
+    if (validSelectedProducts.length === 0) {
+      onShowToast('No valid NA internally products selected for reassignment');
+      return;
+    }
+
+    // Update productsToShow immediately for instant UI feedback
+    const updatedProductsToShow = [...productsToShow];
     if (currentProductIndex === 'bulk') {
-      selectedProducts.forEach(idx => {
-        updatedProducts[idx] = { 
-          ...updatedProducts[idx], 
+      validSelectedProducts.forEach(idx => {
+        updatedProductsToShow[idx] = {
+          ...updatedProductsToShow[idx],
           status: 'Pending',
           reassignedTo: reassignData.source || 'Auto-Select',
           reassignReason: reassignData.reason
         };
+        // Update statusByDraft for all drafts
+        (updatedProductsToShow[idx].draftIds || []).forEach(draftId => {
+          updatedProductsToShow[idx].statusByDraft[draftId] = 'Pending';
+        });
       });
-      onShowToast(`Reassigned ${selectedProducts.length} selected products to ${reassignData.source || 'Auto-Select'}`);
-      setSelectedProducts([]);
     } else {
-      updatedProducts[currentProductIndex] = { 
-        ...updatedProducts[currentProductIndex], 
+      updatedProductsToShow[currentProductIndex] = {
+        ...updatedProductsToShow[currentProductIndex],
         status: 'Pending',
         reassignedTo: reassignData.source || 'Auto-Select',
         reassignReason: reassignData.reason
       };
-      onShowToast(`Reassigned product ${updatedProducts[currentProductIndex].sku} to ${reassignData.source || 'Auto-Select'}`);
+      // Update statusByDraft for all drafts
+      (updatedProductsToShow[currentProductIndex].draftIds || []).forEach(draftId => {
+        updatedProductsToShow[currentProductIndex].statusByDraft[draftId] = 'Pending';
+      });
+    }
+    setProductsToShow(updatedProductsToShow);
+
+    setSourcingOrders(prevOrders => prevOrders.map(order => {
+      if (!order.items) return order;
+      const updatedItems = order.items.map(item => {
+        let shouldUpdate = false;
+        if (currentProductIndex === 'bulk') {
+          validSelectedProducts.forEach(idx => {
+            const prod = productsToShow[idx];
+            if (
+              (item.lineId && prod.lineId && item.lineId === prod.lineId && order.id && prod.draftIds && prod.draftIds.includes(order.id)) ||
+              (item.sku === prod.sku && prod.draftIds && prod.draftIds.length === 1 && prod.draftIds[0] === order.id)
+            ) {
+              shouldUpdate = true;
+            }
+          });
+        } else {
+          const prod = productsToShow[currentProductIndex];
+          if (
+            (item.lineId && prod.lineId && item.lineId === prod.lineId && order.id && prod.draftIds && prod.draftIds.includes(order.id)) ||
+            (item.sku === prod.sku && prod.draftIds && prod.draftIds.length === 1 && prod.draftIds[0] === order.id)
+          ) {
+            shouldUpdate = true;
+          }
+        }
+        if (shouldUpdate) {
+          return {
+            ...item,
+            status: 'Pending',
+            reassignedTo: reassignData.source || 'Auto-Select',
+            reassignReason: reassignData.reason
+          };
+        }
+        return item;
+      });
+      return { ...order, items: updatedItems };
+    }));
+    
+    if (currentProductIndex === 'bulk') {
+      onShowToast(`Reassigned ${selectedProducts.length} selected products to ${reassignData.source || 'Auto-Select'}`);
+      setSelectedProducts([]);
+    } else {
+      onShowToast(`Reassigned product ${productsToShow[currentProductIndex]?.sku} to ${reassignData.source || 'Auto-Select'}`);
     }
     
-    setProductsToShow(updatedProducts);
     setShowReassignModal(false);
     setReassignData({ source: '', reason: '' });
   };
@@ -189,78 +325,82 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       onShowToast('Please provide a reason for rejection');
       return;
     }
-    const updatedProducts = [...productsToShow];
-
-    const nowStamp = new Date().toLocaleString();
-    const year = new Date().getFullYear();
-
-    const handleSingleReject = (idx) => {
-      const item = updatedProducts[idx];
-      const fulfilled = item.qtyFulfilled ?? 0;
-
-      const baseRemark = `${item.remarks || ''}\n[${nowStamp}] Rejected: ${rejectData.reason}`.trim();
-
-      // If low stock / unavailable -> create TO to store
-      if (rejectData.type === 'unavailable' || rejectData.type === 'stock') {
-        const newDoc = `TO-${year}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-        updatedProducts[idx] = {
-          ...item,
-          status: 'TO Created',
-          linkedDocs: [...(item.linkedDocs || []), newDoc],
-          qtyPending: 0,
-          qtyFulfilled: fulfilled,
+    
+    // Update productsToShow immediately for instant UI feedback
+    const updatedProductsToShow = [...productsToShow];
+    if (currentProductIndex === 'bulk') {
+      selectedProducts.forEach(idx => {
+        updatedProductsToShow[idx] = {
+          ...updatedProductsToShow[idx],
+          status: 'Rejected',
           rejectReason: rejectData.reason,
           rejectType: rejectData.type,
-          remarks: `${baseRemark}\nTO created due to low stock: ${newDoc}`
+          remarks: `${updatedProductsToShow[idx].remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectData.reason}`
         };
-        return { type: 'to', doc: newDoc };
-      }
-
-      // If damaged / quality -> create TOI to warehouse for damaged products
-      if (rejectData.type === 'quality' || rejectData.type === 'damaged') {
-        const newDoc = `TOI-${year}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-        updatedProducts[idx] = {
-          ...item,
-          status: 'TOI Created',
-          linkedDocs: [...(item.linkedDocs || []), newDoc],
-          qtyPending: 0,
-          qtyFulfilled: fulfilled,
-          rejectReason: rejectData.reason,
-          rejectType: rejectData.type,
-          source: 'Warehouse (Damaged)',
-          remarks: `${baseRemark}\nTOI created for damaged product: ${newDoc}`
-        };
-        return { type: 'toi', doc: newDoc };
-      }
-
-      // Default: just mark rejected
-      updatedProducts[idx] = {
-        ...item,
+        // Update statusByDraft for all drafts
+        (updatedProductsToShow[idx].draftIds || []).forEach(draftId => {
+          updatedProductsToShow[idx].statusByDraft[draftId] = 'Rejected';
+        });
+      });
+    } else {
+      updatedProductsToShow[currentProductIndex] = {
+        ...updatedProductsToShow[currentProductIndex],
         status: 'Rejected',
         rejectReason: rejectData.reason,
         rejectType: rejectData.type,
-        remarks: baseRemark
+        remarks: `${updatedProductsToShow[currentProductIndex].remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectData.reason}`
       };
-      return { type: 'rejected' };
-    };
-
-    if (currentProductIndex === 'bulk') {
-      const created = { to: 0, toi: 0, rejected: 0 };
-      selectedProducts.forEach(idx => {
-        const res = handleSingleReject(idx);
-        if (res.type === 'to') created.to++;
-        else if (res.type === 'toi') created.toi++;
-        else created.rejected++;
+      // Update statusByDraft for all drafts
+      (updatedProductsToShow[currentProductIndex].draftIds || []).forEach(draftId => {
+        updatedProductsToShow[currentProductIndex].statusByDraft[draftId] = 'Rejected';
       });
-      onShowToast(`Rejected ${selectedProducts.length} selected products (${created.to} TO, ${created.toi} TOI)`);
+    }
+    setProductsToShow(updatedProductsToShow);
+    
+    setSourcingOrders(prevOrders => prevOrders.map(order => {
+      if (!order.items) return order;
+      const updatedItems = order.items.map(item => {
+        let shouldUpdate = false;
+        if (currentProductIndex === 'bulk') {
+          selectedProducts.forEach(idx => {
+            const prod = productsToShow[idx];
+            if (
+              (item.lineId && prod.lineId && item.lineId === prod.lineId && order.id && prod.draftIds && prod.draftIds.includes(order.id)) ||
+              (item.sku === prod.sku && prod.draftIds && prod.draftIds.length === 1 && prod.draftIds[0] === order.id)
+            ) {
+              shouldUpdate = true;
+            }
+          });
+        } else {
+          const prod = productsToShow[currentProductIndex];
+          if (
+            (item.lineId && prod.lineId && item.lineId === prod.lineId && order.id && prod.draftIds && prod.draftIds.includes(order.id)) ||
+            (item.sku === prod.sku && prod.draftIds && prod.draftIds.length === 1 && prod.draftIds[0] === order.id)
+          ) {
+            shouldUpdate = true;
+          }
+        }
+        if (shouldUpdate) {
+          return {
+            ...item,
+            status: 'Rejected',
+            rejectReason: rejectData.reason,
+            rejectType: rejectData.type,
+            remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectData.reason}`
+          };
+        }
+        return item;
+      });
+      return { ...order, items: updatedItems };
+    }));
+    
+    if (currentProductIndex === 'bulk') {
+      onShowToast(`Rejected ${selectedProducts.length} selected products`);
       setSelectedProducts([]);
     } else {
-      const res = handleSingleReject(currentProductIndex);
-      const msg = res.type === 'to' ? `Created TO ${res.doc}` : res.type === 'toi' ? `Created TOI ${res.doc}` : `Rejected product ${updatedProducts[currentProductIndex].sku}`;
-      onShowToast(msg);
+      onShowToast(`Rejected product ${productsToShow[currentProductIndex]?.sku}`);
     }
-
-    setProductsToShow(updatedProducts);
+    
     setShowRejectModal(false);
     setRejectData({ reason: '', type: 'unavailable' });
   };
@@ -270,8 +410,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [statusFilter, setStatusFilter] = useState('All');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
-  const [batchFilter, setBatchFilter] = useState('');
-  const [skuFilter, setSkuFilter] = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] = useState('All');
   const [showChartModal, setShowChartModal] = useState(false);
   const [chartModalData] = useState({ title: '', content: null });
@@ -334,8 +472,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     };
     
     return () => {
-      delete window.handleViewWebOrderFromModal;
-      delete window.openModalFromLine;
+
     };
   }, [handleViewWebOrder, onOpenModal]);
 
@@ -358,12 +495,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     
     const matchesType = (typeFilter === 'All' || order.type === typeFilter);
     const matchesStatus = (statusFilter === 'All' || order.status === statusFilter);
-    const matchesBatch = (batchFilter === '' || order.batchId.toLowerCase().includes(batchFilter.toLowerCase()));
-    
-    // SKU filter - check items array
-    const matchesSku = (skuFilter === '' || (order.items && order.items.some(item => 
-      item.sku?.toLowerCase().includes(skuFilter.toLowerCase())
-    )));
     
     // Source type filter (Store vs Distributor)
     const matchesSourceType = (sourceTypeFilter === 'All' || 
@@ -385,10 +516,10 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     // Retry filter
     const matchesRetry = !showRetryOnly || order.retry > 0;
     
-    // Market Purchase filter
-    const matchesMarketPurchase = !showMarketPurchaseOnly || order.marketPurchase === true;
+    // Market Purchase filter (also triggered by NA Internally button)
+    const matchesMarketPurchase = !showMarketPurchaseOnly || order.type === 'Market Purchase';
     
-    return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesBatch && matchesSku && matchesSourceType && matchesRetry && matchesMarketPurchase;
+    return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesSourceType && matchesRetry && matchesMarketPurchase;
   });
 
   const handleClearFilters = () => {
@@ -397,8 +528,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     setStatusFilter('All');
     setStartDateFilter('');
     setEndDateFilter('');
-    setBatchFilter('');
-    setSkuFilter('');
     setSourceTypeFilter('All');
     setShowRetryOnly(false);
     setShowMarketPurchaseOnly(false);
@@ -501,6 +630,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
           {/* Filters - Collapsible */}
           {showFilters && (
+            <>
             <Row className="g-3 mb-3" style={{ 
               animation: 'slideDown 0.3s ease-out',
               borderBottom: '1px solid #dee2e6',
@@ -536,24 +666,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 />
               </Col>
               <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-                <Form.Label className="small text-muted mb-1">Batch ID</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={batchFilter}
-                  onChange={(e) => setBatchFilter(e.target.value)}
-                  placeholder="Batch ID"
-                />
-              </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={1}>
-                <Form.Label className="small text-muted mb-1">SKU</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={skuFilter}
-                  onChange={(e) => setSkuFilter(e.target.value)}
-                  placeholder="SKU"
-                />
-              </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
                 <Form.Label className="small text-muted mb-1">Source Type</Form.Label>
                 <Form.Select
                   value={sourceTypeFilter}
@@ -579,63 +691,69 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 </Form.Select>
               </Col>
               <Col xs={6} sm={6} md={3} lg={2} xl={2}>
-                <Form.Label className="small text-muted mb-1">Status</Form.Label>
+                <Form.Label className="small text-muted mb-1">TO/PO Status</Form.Label>
                 <Form.Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
                 >
                   <option value="All">All</option>
-                  <option value="Draft">Draft</option>
-                  <option value="Accepted">Accepted</option>
-                  <option value="In Dispatch">In Dispatch</option>
-                  <option value="Fulfilled">Fulfilled</option>
-                  <option value="Rejected">Rejected</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="Partial">Partial</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Expired">Expired</option>
+                  <option value="Generated">Generated</option>
+                  <option value="Dispatched">Dispatched</option>
+                  <option value="In transit">In transit</option>
+                  <option value="Received">Received</option>
                 </Form.Select>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
-                <Button
-                  variant={showRetryOnly ? "primary" : "outline-secondary"}
-                  onClick={() => setShowRetryOnly(!showRetryOnly)}
-                  className="w-100"
-                  size="sm"
-                >
-                  {showRetryOnly ? "✓ " : ""}Re-try Orders
+              <Col xs={6} sm={6} md={3} lg={2} xl={1} className="d-flex align-items-end">
+                <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
+                  Clear All
                 </Button>
               </Col>
+            </Row>
+
+            <Row className="g-2 mt-2" style={{ 
+              borderBottom: '1px solid #dee2e6',
+              paddingBottom: '1rem'
+            }}>
+              <Col xs={12}>
+                <small className="text-muted fw-medium">Major Filtration:</small>
+              </Col>
               <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
-                <Button
-                  variant={showMarketPurchaseOnly ? "primary" : "outline-secondary"}
+                <Button 
+                  variant={showMarketPurchaseOnly ? "warning" : "outline-warning"} 
                   onClick={() => setShowMarketPurchaseOnly(!showMarketPurchaseOnly)}
                   className="w-100"
                   size="sm"
                 >
-                  {showMarketPurchaseOnly ? "✓ " : ""}Market Purchase
+                  {showMarketPurchaseOnly ? "✓ " : ""}NA Internally
                 </Button>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={1} className="d-flex align-items-end">
-                <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
-                  Clear
+              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+                <Button 
+                  variant={showRetryOnly ? "info" : "outline-info"} 
+                  onClick={() => setShowRetryOnly(!showRetryOnly)}
+                  className="w-100"
+                  size="sm"
+                >
+                  {showRetryOnly ? "✓ " : ""}Retried Orders
                 </Button>
               </Col>
-                <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
-                  <Button
-                    variant="outline-secondary"
-                    
-                    onClick={handleShowProducts}
-                    size="sm"
-                    disabled={selectedRows.length === 0}
-                  >
-                    Show unfullfilled products
-                  </Button>
-                </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+                <Button 
+                  variant="outline-danger"
+                  onClick={handleShowProducts}
+                  className="w-100"
+                  size="sm"
+                  disabled={selectedRows.length === 0}
+                >
+                  Unfulfilled Products
+                </Button>
+              </Col>
             </Row>
+            </>
           )}
-                    {/* Actions cell removed */}
+
+
 
           {/* Table */}
           <div className="table-responsive" style={{ overflowX: 'auto', minWidth: '1000px' }} ref={tableRef}>
@@ -654,20 +772,23 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                       <span className="small">Select All</span>
                     </div>
                   </th>
-                  <th style={{ width: '120px' }}>Draft ID</th>
-                  <th style={{ width: '80px' }}>Type</th>
+                  <th style={{ width: '120px' }}>Record ID</th>
+                  <th style={{ width: '80px' }}>Order Type</th>
                   <th style={{ width: '120px' }}>TO/PO ID</th>
-                  <th style={{ width: '120px' }}>Web Order</th>
-                  <th style={{ width: '130px' }}>Status</th>
-                  <th style={{ width: '200px' }}>TO/PO Tracking</th>
-                  <th style={{ width: '150px' }}>Created</th>
-                  {/* Actions column removed */}
+                  <th style={{ width: '120px' }}>Linked Web Order No</th>
+                  <th style={{ width: '130px' }}>Source Location</th>
+                  <th style={{ width: '130px' }}>Destination Location</th>
+                  <th style={{ width: '150px' }}>Record Status</th>
+                  <th style={{ width: '150px' }}>TO/PO Status</th>
+                  <th style={{ width: '150px' }}>Created Date/Time</th>
+                  <th style={{ width: '100px' }}>Created By</th>
+                  <th style={{ width: '150px' }}>Remarks/Reason</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="16" className="text-center text-secondary py-5">
+                    <td colSpan="12" className="text-center text-secondary py-5">
                       No orders found matching your criteria.
                     </td>
                   </tr>
@@ -675,7 +796,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   filteredOrders.map((order, idx) => {
                     const isHighlighted = highlightedTOPO === order.docId;
                     if (highlightedTOPO) {
-                      console.log(`Comparing highlightedTOPO "${highlightedTOPO}" with order.docId "${order.docId}":`, isHighlighted);
                     }
                     return (
                     <tr key={order.id}
@@ -723,18 +843,21 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                           {order.webOrder}
                         </Button>
                       </td>
+                      <td className="small">{order.source || '-'}</td>
+                      <td className="small">{order.destination || '-'}</td>
                       <td>
-                        <span className={`badge ${getStatusBadgeClass(order.status)}`}>
-                          {order.status}
+                        <span className={`badge ${getStatusBadgeClass(order.recordStatus || order.status)}`}>
+                          {order.recordStatus || order.status}
                         </span>
                       </td>
                       <td>
-                        <span className={`badge ${getTrackingBadgeClass(order.trackingStatus)} text-wrap`} style={{ whiteSpace: 'normal', lineHeight: '1.2' }}>
-                          {order.trackingStatus || 'Draft Created'}
+                        <span className={`badge ${getTrackingBadgeClass(order.status || order.trackingStatus)} text-wrap`} style={{ whiteSpace: 'normal', lineHeight: '1.2' }}>
+                          {order.status || order.trackingStatus || 'Generated'}
                         </span>
                       </td>
                       <td className="small">{order.created}</td>
-                      {/* Actions cell removed */}
+                      <td className="small">{order.createdBy || 'System'}</td>
+                      <td className="small text-muted">{order.remarks || '-'}</td>
                     </tr>
                     );
                   })
@@ -851,6 +974,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                       const req = item.qtyReq ?? item.quantity ?? 0;
                       const fulfilled = item.qtyFulfilled ?? 0;
                       const pending = Math.max(0, req - fulfilled);
+                      
+                      // Check if any of the product's statuses includes "NA internally" or "Market Purchase Initiated"
+                      const hasNAInternally = (item.statuses || []).some(status => 
+                        status === 'NA internally' || status === 'Market Purchase Initiated'
+                      );
+                      
                       return (
                       <tr key={idx}>
                         <td>
@@ -859,6 +988,8 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                             checked={selectedProducts.includes(idx)}
                             onChange={() => handleProductSelect(idx)}
                             aria-label={`Select product ${item.sku}`}
+                            disabled={!hasNAInternally}
+                            title={hasNAInternally ? "" : "Selection only available for NA internally products"}
                           />
                         </td>
                         <td>{item.sku}</td>
@@ -900,24 +1031,37 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                           </div>
                         </td>
                         <td>
-                          <Button
-                            variant="outline-primary"
-                            size="sm"
-                            className="me-1 p-1"
-                            onClick={() => handleReassignSingleProduct(idx)}
-                            title="Reassign"
-                          >
-                            <i className="bi bi-arrow-repeat"></i>
-                          </Button>
-                          <Button
-                            variant="outline-danger"
-                            size="sm"
-                            className="p-1"
-                            onClick={() => handleRejectSingleProduct(idx)}
-                            title="Reject"
-                          >
-                            <i className="bi bi-x-circle"></i>
-                          </Button>
+                          {(() => {
+                            // Check if any of the product's statuses includes "NA internally"
+                            const hasNAInternally = (item.statuses || []).some(status => 
+                              status === 'NA internally' || status === 'Market Purchase Initiated'
+                            );
+                            
+                            return (
+                              <>
+                                <Button
+                                  variant="outline-primary"
+                                  size="sm"
+                                  className="me-1 p-1"
+                                  onClick={() => handleReassignSingleProduct(idx)}
+                                  title={hasNAInternally ? "Reassign" : "Actions only available for NA internally products"}
+                                  disabled={!hasNAInternally}
+                                >
+                                  <i className="bi bi-arrow-repeat"></i>
+                                </Button>
+                                <Button
+                                  variant="outline-danger"
+                                  size="sm"
+                                  className="p-1"
+                                  onClick={() => handleRejectSingleProduct(idx)}
+                                  title={hasNAInternally ? "Reject" : "Actions only available for NA internally products"}
+                                  disabled={!hasNAInternally}
+                                >
+                                  <i className="bi bi-x-circle"></i>
+                                </Button>
+                              </>
+                            );
+                          })()}
                         </td>
                       </tr>
                     )})}
@@ -1055,7 +1199,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
               <th>Qty Pending</th>
               <th>Status</th>
               <th>Remarks</th>
-              {/* Actions column removed */}
+
             </tr>
           </thead>
           <tbody>
@@ -1071,7 +1215,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   <td className={`text-end ${pending > 0 ? 'text-warning fw-medium' : 'text-muted'}`}>{pending}</td>
                   <td><span className={`badge ${getStatusBadgeClass(item.status)}`}>{item.status}</span></td>
                   <td className="small">{item.remarks || '-'}</td>
-                  {/* Actions cell removed */}
+
                 </tr>
               );
             })}

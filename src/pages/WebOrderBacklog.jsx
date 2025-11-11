@@ -13,6 +13,9 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   const [showChartModal, setShowChartModal] = useState(false);
   const [chartModalData] = useState({ title: '', content: null });
   const [showFilters, setShowFilters] = useState(false);
+  const [naInternallyFilter, setNaInternallyFilter] = useState(false);
+  const [retriedOrdersFilter, setRetriedOrdersFilter] = useState(false);
+  const [unfulfilledFilter, setUnfulfilledFilter] = useState(false);
   const highlightedRowRef = useRef(null);
   const tableRef = useRef(null);
 
@@ -90,8 +93,32 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       endDate.setHours(23, 59, 59, 999); // Include the entire end date
       matchesDateRange = matchesDateRange && orderDate <= endDate;
     }
+
+    // Major filtration logic
+    let matchesMajorFilters = true;
     
-    return matchesSearch && matchesStatus && matchesSource && matchesDateRange;
+    // NA Internally filter - products with "NA internally" status
+    if (naInternallyFilter) {
+      matchesMajorFilters = matchesMajorFilters && 
+        order.items?.some(item => item.status === 'NA internally');
+    }
+    
+    // Retried Orders filter - orders with retry count > 0
+    if (retriedOrdersFilter) {
+      matchesMajorFilters = matchesMajorFilters && 
+        order.items?.some(item => (item.retries || 0) > 0);
+    }
+    
+    // Unfulfilled Products filter - products with pending quantity > 0
+    if (unfulfilledFilter) {
+      matchesMajorFilters = matchesMajorFilters && 
+        order.items?.some(item => {
+          const qtyPending = item.qtyPending || (item.qtyReq - item.qtyFulfilled);
+          return qtyPending > 0;
+        });
+    }
+    
+    return matchesSearch && matchesStatus && matchesSource && matchesDateRange && matchesMajorFilters;
   });
 
   const handleClearFilters = () => {
@@ -100,6 +127,9 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     setSourceFilter('All');
     setStartDateFilter('');
     setEndDateFilter('');
+    setNaInternallyFilter(false);
+    setRetriedOrdersFilter(false);
+    setUnfulfilledFilter(false);
   };
 
   const handleDownload = () => {
@@ -130,7 +160,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           });
         });
       } else {
-        // Export order without product details (legacy format)
         exportData.push({
           id: order.id,
           customer: order.customer,
@@ -167,7 +196,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   };
 
   const handleProductAction = (productId, actionValue) => {
-    console.log('handleProductAction called with productId:', productId, 'action:', actionValue);
     
     // Find the product and its parent order
     let product = null;
@@ -178,7 +206,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         product = order.items.find(item => (item.lineId || item.id) === productId);
         if (product) {
           parentOrder = order;
-          console.log('Found product:', product.product, 'lineId:', product.lineId);
           break;
         }
       }
@@ -190,6 +217,31 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     }
 
     switch (actionValue) {
+      case 'view_details': {
+        // Show product details in a modal
+        const detailsHTML = `
+          <div class="product-details">
+            <h6 class="mb-3">Product Details</h6>
+            <table class="table table-sm table-bordered">
+              <tbody>
+                <tr><th width="40%">Product Name</th><td>${product.product || '-'}</td></tr>
+                <tr><th>SKU</th><td>${product.sku || '-'}</td></tr>
+                <tr><th>Status</th><td><span class="badge ${getStatusBadgeClass(product.status)}">${product.status || '-'}</span></td></tr>
+                <tr><th>Quantity Ordered</th><td>${product.qty || product.qtyOrdered || 0}</td></tr>
+                <tr><th>Quantity Fulfilled</th><td>${product.qtyFulfilled || 0}</td></tr>
+                <tr><th>Quantity Pending</th><td>${product.qtyPending || 0}</td></tr>
+                <tr><th>Source</th><td>${product.source || '-'}</td></tr>
+                <tr><th>Retry Count</th><td>${product.retries || 0}/4</td></tr>
+                <tr><th>Linked Documents</th><td>${product.linkedDocs?.join(', ') || '-'}</td></tr>
+              </tbody>
+            </table>
+            ${product.remarks ? `<div class="mt-3"><strong>History:</strong><pre class="bg-light p-2 mt-1" style="font-size: 0.85em; white-space: pre-wrap;">${product.remarks}</pre></div>` : ''}
+          </div>
+        `;
+        onOpenModal(`Product Details: ${product.product}`, detailsHTML, 'modal-lg');
+        break;
+      }
+      case 'view_linked_to_po':
       case 'view_docs': {
         const linked = product.linkedDocs || (product.linkedDoc ? [product.linkedDoc] : []);
         if (!linked || linked.length === 0) {
@@ -241,7 +293,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             return prevOrders.map(order => {
               if (order.id === parentOrder.id) {
                 const itemsToUpdate = [];
-                
+;
                 // Process the items
                 order.items.forEach(item => {
                   if ((item.lineId || item.id) === productId) {
@@ -452,7 +504,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               if (order.id === parentOrder.id) {
                 const updatedItems = order.items.map(item => {
                   if ((item.lineId || item.id) === productId) {
-                    console.log('Marking product as unavailable:', item.product, 'lineId:', item.lineId);
                     return {
                       ...item,
                       status: 'Not Available',
@@ -462,11 +513,9 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                       remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] Product marked as Not Available - All sourcing attempts exhausted (TO → PO → Market)`.trim()
                     };
                   }
-                  console.log('Keeping product unchanged:', item.product, 'lineId:', item.lineId);
                   return item;
                 });
                 
-                console.log('Updated items:', updatedItems.map(i => ({product: i.product, status: i.status, lineId: i.lineId})));
                 
                 // Determine parent order status based on all items
                 let newOrderStatus = order.overallStatus || order.status;
@@ -587,7 +636,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
   // Get available actions based on order status - Web Order Level
   const getOrderActions = (order) => {
-    const status = order.overallStatus || order.status;
     const actions = [];
 
     // Always show View Details first
@@ -600,24 +648,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     
     if (hasLinkedDocs) {
       actions.push({ label: 'View Linked TO/PO', value: 'view_docs' });
-    }
-
-    // Status-specific actions based on Back Order Fulfilment Dashboard requirements
-    if (status === 'Pending Sourcing' || status === 'Pending') {
-      // Draft Request / Pending - can trigger sourcing process
-      actions.push({ label: 'Process Request', value: 'process_request' });
-    } 
-    else if (status === 'Partially Fulfilled') {
-      // Partially completed - manual closure option remains
-      actions.push({ label: 'Manual Closure', value: 'manual_closure' });
-    } 
-    else if (status === 'Exception') {
-      // Exception cases - mark for market purchase or manual intervention
-      actions.push({ label: 'Mark for Market Purchase', value: 'market_purchase' });
-      actions.push({ label: 'Manual Closure', value: 'manual_closure' });
-    }
-    else if (status === 'Completed') {
-      // Only view details for completed orders
     }
 
     return actions;
@@ -1240,6 +1270,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
           {/* Filters - Collapsible */}
           {showFilters && (
+            <>
             <Row className="g-3 mb-3 animate__animated animate__fadeInDown" style={{ 
               animation: 'slideDown 0.3s ease-out',
               borderBottom: '1px solid #dee2e6',
@@ -1294,25 +1325,56 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <option value="All">All Statuses</option>
-                  <option value="Pending Sourcing">Pending Sourcing</option>
-                  <option value="TO Created">TO Created</option>
-                  <option value="PO Created">PO Created</option>
+                  <option value="Approved">Approved</option>
                   <option value="Partially Fulfilled">Partially Fulfilled</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Market Purchase">Market Purchase</option>
-                  <option value="Exception">Exception</option>
-                  <option value="Rejected">Rejected</option>
+                  <option value="Fulfilled">Fulfilled</option>
                 </Form.Select>
+              </Col>
+            </Row>
+            <Row className="g-2 mt-2">
+              <Col xs={12}>
+                <h6 className="mb-2 small text-muted">Major Filtration</h6>
+              </Col>
+              <Col xs={6} sm={4} md={3} lg={2}>
+                <Button 
+                  variant={naInternallyFilter ? "warning" : "outline-warning"}
+                  onClick={() => setNaInternallyFilter(!naInternallyFilter)}
+                  className="w-100"
+                  size="sm"
+                >
+                  {naInternallyFilter ? "✓ " : ""}NA Internally
+                </Button>
+              </Col>
+              <Col xs={6} sm={4} md={3} lg={2}>
+                <Button 
+                  variant={retriedOrdersFilter ? "info" : "outline-info"}
+                  onClick={() => setRetriedOrdersFilter(!retriedOrdersFilter)}
+                  className="w-100"
+                  size="sm"
+                >
+                  {retriedOrdersFilter ? "✓ " : ""}Retried Orders
+                </Button>
+              </Col>
+              <Col xs={6} sm={4} md={3} lg={2}>
+                <Button 
+                  variant={unfulfilledFilter ? "danger" : "outline-danger"}
+                  onClick={() => setUnfulfilledFilter(!unfulfilledFilter)}
+                  className="w-100"
+                  size="sm"
+                >
+                  {unfulfilledFilter ? "✓ " : ""}Unfulfilled Products
+                </Button>
               </Col>
               <Col xs={6} sm={4} md={2} lg={2} xl={1} className="d-flex align-items-end">
                 <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
-                  Clear
+                  Clear All
                 </Button>
               </Col>
             </Row>
+            </>
           )}
 
-          {/* Table Actions - Removed Download button from here */}
+
           <style>{`
             @keyframes slideDown {
               from {
@@ -1414,10 +1476,10 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  if (typeof setHighlightedTOPO === 'function' && typeof onNavigate === 'function') {
-                                    setHighlightedTOPO(docId.trim());
-                                    onNavigate('sourcing');
-                                  }
+                                  const doc = docId.trim();
+                                  // Navigate to TO/PO page and highlight the document
+                                  setHighlightedTOPO(doc);
+                                  onNavigate('sourcing');
                                 }}
                               >
                                 {docId.trim()}

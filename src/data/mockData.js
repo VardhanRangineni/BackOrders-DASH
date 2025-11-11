@@ -1,11 +1,41 @@
 // Mock Data for MedPlus Back Order Fulfilment System
-// Supports multi-line items per web order with partial fulfillment tracking
+// Updated with statuses as per requirements document
+
+/* 
+ * WEB ORDER LEVEL STATUSES:
+ * - Approved
+ * - Partially Fulfilled
+ * - Fulfilled
+ * 
+ * PRODUCT LEVEL STATUSES (within web orders):
+ * - Pending
+ * - Partially Fulfilled Internally
+ * - Fully Fulfilled Internally
+ * - Draft Created
+ * - TO Created / PO Created
+ * - Partially Fulfilled
+ * - Completely Fulfilled
+ * - NA internally
+ * - Market Purchase Initiated
+ * - NA in Market
+ * 
+ * TO/PO RECORD STATUSES:
+ * - Draft Created
+ * - Partially Fulfilled
+ * - Fulfilled
+ * 
+ * TO/PO ORDER STATUSES:
+ * - Generated
+ * - Dispatched
+ * - In transit
+ * - Received
+ */
 
 export const webOrders = [
   {
     id: 'WO-2025-001',
     customer: 'MedPlus Customer - Hyderabad',
-  trackingStatus: 'TO Generated',
+    status: 'Partially Fulfilled',
     items: [
       {
         lineId: 'WOL-001-1',
@@ -15,8 +45,10 @@ export const webOrders = [
         qtyFulfilled: 300,
         qtyPending: 200,
         status: 'Partially Fulfilled',
-        source: 'Store (TO) - S-HYD-01, S-HYD-03',
-        linkedDocs: ['TO-2025-001', 'TO-2025-002']
+        sourceType: 'Store',
+        source: 'S-HYD-01, S-HYD-03',
+        linkedDocs: ['TO-2025-001', 'TO-2025-002'],
+        retries: 0
       },
       {
         lineId: 'WOL-001-2',
@@ -25,22 +57,23 @@ export const webOrders = [
         qty: 300,
         qtyFulfilled: 0,
         qtyPending: 300,
-        status: 'Pending Sourcing',
-        source: 'Pending',
-        linkedDocs: []
+        status: 'Pending',
+        sourceType: null,
+        source: '',
+        linkedDocs: [],
+        retries: 0
       }
     ],
     created: '2025-10-28 09:30:00',
     lastUpdated: '2025-10-29 14:20:00',
     age: 3,
-    overallStatus: 'Partially Fulfilled',
     totalItems: 2,
     remarks: 'Multi-product order sourced from multiple stores'
   },
   {
     id: 'WO-2025-002',
     customer: 'Sandeep G.',
-  trackingStatus: 'TO In Transit',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-002-1',
@@ -49,22 +82,23 @@ export const webOrders = [
         qty: 200,
         qtyFulfilled: 0,
         qtyPending: 200,
-        status: 'TO Created',
-        source: 'Store (TO) - S-BAN-02',
-        linkedDocs: ['TO-2025-005']
+        status: 'Draft Created',
+        sourceType: 'Store',
+        source: 'S-BAN-02',
+        linkedDocs: ['DRAFT-2025-005'],
+        retries: 0
       }
     ],
     created: '2025-10-28 10:15:00',
     lastUpdated: '2025-10-28 11:00:00',
     age: 3,
-    overallStatus: 'TO Created',
     totalItems: 1,
     remarks: ''
   },
   {
     id: 'WO-2025-003',
     customer: 'Dr. Bhaskar R.',
-  trackingStatus: 'PO Generated',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-003-1',
@@ -73,22 +107,23 @@ export const webOrders = [
         qty: 500,
         qtyFulfilled: 0,
         qtyPending: 500,
-        status: 'PO Created',
-        source: 'Distributor (PO)',
-        linkedDocs: ['PO-2025-001']
+        status: 'TO Created',
+        sourceType: 'Store',
+        source: 'S-HYD-05',
+        linkedDocs: ['TO-2025-012'],
+        retries: 0
       }
     ],
     created: '2025-10-27 14:00:00',
     lastUpdated: '2025-10-28 09:00:00',
     age: 4,
-    overallStatus: 'PO Created',
     totalItems: 1,
-    remarks: 'After 1 retry'
+    remarks: ''
   },
   {
     id: 'WO-2025-004',
     customer: 'Ravi K.',
-  trackingStatus: 'TO Received at Warehouse',
+    status: 'Fulfilled',
     items: [
       {
         lineId: 'WOL-004-1',
@@ -97,22 +132,23 @@ export const webOrders = [
         qty: 100,
         qtyFulfilled: 100,
         qtyPending: 0,
-        status: 'Completed',
-        source: 'Store (TO) - S-BAN-02',
-        linkedDocs: ['TO-2025-010']
+        status: 'Completely Fulfilled',
+        sourceType: 'Store',
+        source: 'S-BAN-02',
+        linkedDocs: ['TO-2025-010'],
+        retries: 0
       }
     ],
     created: '2025-10-26 11:00:00',
     lastUpdated: '2025-10-26 18:00:00',
     age: 5,
-    overallStatus: 'Completed',
     totalItems: 1,
     remarks: 'Fulfilled by S-BAN-02'
   },
   {
     id: 'WO-2025-005',
     customer: 'Priya S.',
-  trackingStatus: 'Market Purchase In Progress',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-005-1',
@@ -121,9 +157,11 @@ export const webOrders = [
         qty: 300,
         qtyFulfilled: 0,
         qtyPending: 300,
-        status: 'Market Purchase',
-        source: 'Market Purchase',
-        linkedDocs: ['MP-2025-001']
+        status: 'NA internally',
+        sourceType: null,
+        source: '',
+        linkedDocs: [],
+        retries: 3
       },
       {
         lineId: 'WOL-005-2',
@@ -132,70 +170,73 @@ export const webOrders = [
         qty: 150,
         qtyFulfilled: 0,
         qtyPending: 150,
-        status: 'Market Purchase',
-        source: 'Market Purchase',
-        linkedDocs: ['MP-2025-002']
+        status: 'Market Purchase Initiated',
+        sourceType: null,
+        source: 'Market',
+        linkedDocs: ['MP-2025-002'],
+        retries: 3
       }
     ],
     created: '2025-10-25 08:00:00',
     lastUpdated: '2025-10-29 16:00:00',
     age: 6,
-    overallStatus: 'Market Purchase',
     totalItems: 2,
-    remarks: 'Unavailable at warehouse, all stores, and distributors after 3 retries. Escalated to market purchase.'
+    remarks: 'Unavailable at warehouse, all stores, and distributors after 3 retries.'
   },
   {
     id: 'WO-2025-006',
     customer: 'Sunita M.',
-  trackingStatus: 'Draft Created',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-006-1',
         product: 'Dolo 650mg',
         sku: 'MED-DLO-650',
         qty: 200,
-        qtyFulfilled: 0,
-        qtyPending: 200,
-        status: 'Pending Sourcing',
-        source: 'Pending',
-        linkedDocs: []
+        qtyFulfilled: 50,
+        qtyPending: 150,
+        status: 'Partially Fulfilled Internally',
+        sourceType: 'Store',
+        source: 'S-HYD-02',
+        linkedDocs: ['TO-2025-014'],
+        retries: 0
       }
     ],
     created: '2025-10-30 12:00:00',
-    lastUpdated: '2025-10-30 12:00:00',
+    lastUpdated: '2025-10-30 14:30:00',
     age: 1,
-    overallStatus: 'Pending Sourcing',
     totalItems: 1,
-    remarks: ''
+    remarks: 'Partially fulfilled from internal source'
   },
   {
     id: 'WO-2025-007',
     customer: 'Vijay P.',
-  trackingStatus: 'TO In Transit',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-007-1',
         product: 'Cetirizine 10mg',
         sku: 'MED-CET-10',
         qty: 400,
-        qtyFulfilled: 200,
-        qtyPending: 200,
-        status: 'Partially Fulfilled',
-        source: 'Store (TO) - S-HYD-01, S-MUM-05',
-        linkedDocs: ['TO-2025-015', 'TO-2025-016']
+        qtyFulfilled: 400,
+        qtyPending: 0,
+        status: 'Fully Fulfilled Internally',
+        sourceType: 'Store',
+        source: 'S-HYD-01, S-MUM-05',
+        linkedDocs: ['TO-2025-015', 'TO-2025-016'],
+        retries: 0
       }
     ],
     created: '2025-10-24 16:00:00',
     lastUpdated: '2025-10-28 10:00:00',
     age: 7,
-    overallStatus: 'Partially Fulfilled',
     totalItems: 1,
-    remarks: 'Partial fulfilment from S-HYD-01 (100) and S-MUM-05 (100). Pending 200'
+    remarks: 'Fully fulfilled from stores'
   },
   {
     id: 'WO-2025-008',
     customer: 'Kiran D.',
-  trackingStatus: 'PO Received at Warehouse',
+    status: 'Fulfilled',
     items: [
       {
         lineId: 'WOL-008-1',
@@ -204,22 +245,23 @@ export const webOrders = [
         qty: 100,
         qtyFulfilled: 100,
         qtyPending: 0,
-        status: 'Completed',
-        source: 'Distributor (PO)',
-        linkedDocs: ['PO-2025-002']
+        status: 'Completely Fulfilled',
+        sourceType: 'Distributor',
+        source: 'DIST-01',
+        linkedDocs: ['PO-2025-002'],
+        retries: 0
       }
     ],
     created: '2025-10-20 09:00:00',
     lastUpdated: '2025-10-21 19:30:00',
     age: 11,
-    overallStatus: 'Completed',
     totalItems: 1,
-    remarks: ''
+    remarks: 'Fulfilled via distributor'
   },
   {
     id: 'WO-2025-009',
     customer: 'Nikhil R.',
-  trackingStatus: 'PO Rejected - Escalated',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-009-1',
@@ -228,626 +270,1163 @@ export const webOrders = [
         qty: 200,
         qtyFulfilled: 0,
         qtyPending: 200,
-        status: 'Market Purchase',
-        source: 'Market Purchase',
-        linkedDocs: ['PO-2025-003', 'MP-2025-004']
+        status: 'PO Created',
+        sourceType: 'Distributor',
+        source: 'DIST-02',
+        linkedDocs: ['PO-2025-003'],
+        retries: 2
       }
     ],
     created: '2025-10-31 08:00:00',
     lastUpdated: '2025-11-01 14:00:00',
     age: 3,
-    overallStatus: 'Market Purchase',
     totalItems: 1,
-    remarks: 'PO rejected by distributor. Escalated to market purchase.'
+    remarks: 'After 2 retries, routed to distributor'
   },
   {
     id: 'WO-2025-010',
     customer: 'Arpit J.',
-  trackingStatus: 'Draft Approved - Fulfilled',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-010-1',
         product: 'Omeprazole 20mg',
         sku: 'MED-OMP-20',
         qty: 150,
-        qtyFulfilled: 150,
-        qtyPending: 0,
-        status: 'Completed',
-        source: 'Market Purchase',
-        linkedDocs: ['MP-2025-003']
+        qtyFulfilled: 0,
+        qtyPending: 150,
+        status: 'NA in Market',
+        sourceType: null,
+        source: '',
+        linkedDocs: ['MP-2025-003'],
+        retries: 2
       }
     ],
     created: '2025-10-28 13:00:00',
     lastUpdated: '2025-10-30 16:00:00',
     age: 6,
-    overallStatus: 'Completed',
     totalItems: 1,
-    remarks: 'Store rejected after 2 retries. Successfully fulfilled via market purchase.'
-  }
-];
-
-export const sourcingOrders = [
+    remarks: 'Not available in market after escalation'
+  },
   {
-    id: 'DRAFT-2025-001',
-    type: 'TO',
-    docId: 'TO-2025-001',
-    webOrder: 'WO-2025-001',
-    batchId: 'BATCH-001',
-    source: 'Store S-HYD-01 (Hyderabad)',
-    destination: 'Central Warehouse',
+    id: 'WO-2025-011',
+    customer: 'Rajesh Kumar - Mumbai',
     status: 'Partially Fulfilled',
-    trackingStatus: 'TO Received at Warehouse',
-    items: [
-      {
-        lineId: 'WOL-001-1',
-        product: 'Paracetamol 500mg',
-        sku: 'MED-PAR-500',
-        qtyReq: 500,
-        qtyFulfilled: 300,
-        qtyPending: 200,
-        status: 'Partial'
-      },
-      {
-        lineId: 'WOL-001-2',
-        product: 'Aspirin 75mg',
-        sku: 'MED-ASP-75',
-        qtyReq: 200,
-        qtyFulfilled: 200,
-        qtyPending: 0,
-        status: 'Fulfilled'
-      }
-    ],
-    qtyReq: 700,
-    qtyFulfilled: 500,
-    retry: 0,
-    created: '2025-10-28 08:00:00',
-    lastUpdated: '2025-10-28 14:30:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-Store01',
-    remarks: 'Partial fulfilment. 200 units of Paracetamol pending',
-    popupShown: 5,
-    popupSkipped: 1
-  },
-  {
-    id: 'DRAFT-2025-002',
-    type: 'TO',
-    docId: 'TO-2025-002',
-    webOrder: 'WO-2025-001',
-    batchId: 'BATCH-001-R1',
-    source: 'Store S-BAN-01 (Bangalore)',
-    destination: 'Central Warehouse',
-    status: 'Draft',
-  trackingStatus: 'Draft Created',
-    items: [
-      {
-        lineId: 'WOL-001-1',
-        product: 'Paracetamol 500mg',
-        sku: 'MED-PAR-500',
-        qtyReq: 200,
-        qtyFulfilled: 0,
-        qtyPending: 200,
-        status: 'Pending',
-        remarks: 'Remaining qty from TO-2025-001'
-      }
-    ],
-    qtyReq: 200,
-    qtyFulfilled: 0,
-    retry: 1,
-    created: '2025-10-28 15:00:00',
-    lastUpdated: '2025-10-28 15:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'System Scheduler',
-    remarks: 'Retry 1: Unfulfilled items from TO-2025-001 routed to different store',
-    popupShown: 0,
-    popupSkipped: 0
-  },
-  {
-    id: 'DRAFT-2025-003',
-    type: 'PO',
-    docId: 'PO-2025-001',
-    webOrder: 'WO-2025-003',
-    batchId: 'BATCH-002',
-    source: 'MedPlus Distributor DIST-MP-001',
-    destination: 'Central Warehouse',
-    status: 'Accepted',
-    trackingStatus: 'SO Created - Awaiting Dispatch',
-    items: [
-      {
-        lineId: 'WOL-003-1',
-        product: 'Ibuprofen 400mg',
-        sku: 'MED-IBU-400',
-        qtyReq: 150,
-        qtyFulfilled: 0,
-        qtyPending: 150,
-        status: 'Accepted'
-      },
-      {
-        lineId: 'WOL-003-2',
-        product: 'Dolo 650mg',
-        sku: 'MED-DOL-650',
-        qtyReq: 300,
-        qtyFulfilled: 0,
-        qtyPending: 300,
-        status: 'Accepted'
-      }
-    ],
-    qtyReq: 450,
-    qtyFulfilled: 0,
-    retry: 0,
-    created: '2025-10-27 09:30:00',
-    lastUpdated: '2025-10-27 10:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-MedPlus',
-    remarks: 'SO created. Awaiting dispatch',
-    popupShown: 0,
-    popupSkipped: 0
-  },
-  {
-    id: 'DRAFT-2025-004',
-    type: 'TO',
-    docId: 'TO-2025-005',
-    webOrder: 'WO-2025-002',
-    batchId: 'BATCH-001',
-    source: 'Store S-CHE-01 (Chennai)',
-    destination: 'Central Warehouse',
-    status: 'Fulfilled',
-    trackingStatus: 'TO Received at Warehouse',
-    items: [
-      {
-        lineId: 'WOL-002-1',
-        product: 'Vitamin D3',
-        sku: 'MED-VIT-D3',
-        qtyReq: 100,
-        qtyFulfilled: 100,
-        qtyPending: 0,
-        status: 'Fulfilled'
-      },
-      {
-        lineId: 'WOL-002-2',
-        product: 'Calcium Tablets',
-        sku: 'MED-CAL-500',
-        qtyReq: 150,
-        qtyFulfilled: 150,
-        qtyPending: 0,
-        status: 'Fulfilled'
-      }
-    ],
-    qtyReq: 250,
-    qtyFulfilled: 250,
-    retry: 0,
-    created: '2025-10-25 10:00:00',
-    lastUpdated: '2025-10-25 16:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-Store03',
-    remarks: 'Completed in 6 hours',
-    popupShown: 3,
-    popupSkipped: 0
-  },
-  {
-    id: 'DRAFT-2025-005',
-    type: 'TO',
-    docId: 'TO-2025-010',
-    webOrder: 'WO-2025-004',
-    batchId: 'BATCH-002',
-    source: 'Store S-BAN-02 (Bangalore)',
-    destination: 'Central Warehouse',
-    status: 'Fulfilled',
-    trackingStatus: 'TO Received at Warehouse',
-    items: [
-      {
-        lineId: 'WOL-004-1',
-        product: 'Amoxicillin 500mg',
-        sku: 'MED-AMX-500',
-        qtyReq: 100,
-        qtyFulfilled: 100,
-        qtyPending: 0,
-        status: 'Fulfilled'
-      }
-    ],
-    qtyReq: 100,
-    qtyFulfilled: 100,
-    retry: 0,
-    created: '2025-10-26 11:00:00',
-    lastUpdated: '2025-10-26 18:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-Store02',
-    remarks: 'Completed in 7 hours',
-    popupShown: 2,
-    popupSkipped: 0
-  },
-  {
-    id: 'DRAFT-2025-006',
-    type: 'TO',
-    docId: '-',
-    webOrder: 'WO-2025-005',
-    batchId: 'BATCH-003',
-    source: 'Store S-PUN-01 (Pune)',
-    destination: 'Central Warehouse',
-    status: 'Rejected',
-    trackingStatus: 'TO Rejected - Stock Unavailable',
-    items: [
-      {
-        lineId: 'WOL-005-1',
-        product: 'Crocin Advance',
-        sku: 'MED-CRO-ADV',
-        qtyReq: 300,
-        qtyFulfilled: 0,
-        qtyPending: 300,
-        status: 'Rejected',
-        remarks: 'Stock unavailable at store'
-      }
-    ],
-    qtyReq: 300,
-    qtyFulfilled: 0,
-    retry: 3,
-    created: '2025-10-26 10:00:00',
-    lastUpdated: '2025-10-26 11:30:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-Store04',
-    remarks: 'Stock unavailable. Rejected after 1.5 hours',
-    popupShown: 3,
-    popupSkipped: 0
-  },
-  {
-    id: 'DRAFT-2025-007',
-    type: 'PO',
-    docId: 'PO-2025-002',
-    webOrder: 'WO-2025-008',
-    batchId: 'BATCH-004',
-    source: 'MedPlus Distributor DIST-MP-002',
-    destination: 'Central Warehouse',
-  status: 'Fulfilled',
-  trackingStatus: 'PO Received at Warehouse',
-    items: [
-      {
-        lineId: 'WOL-008-1',
-        product: 'Metformin 500mg',
-        sku: 'MED-MET-500',
-        qtyReq: 100,
-        qtyFulfilled: 100,
-        qtyPending: 0,
-        status: 'Fulfilled'
-      }
-    ],
-    qtyReq: 100,
-    qtyFulfilled: 100,
-    retry: 0,
-    created: '2025-10-20 09:00:00',
-    lastUpdated: '2025-10-20 19:30:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-MedPlus',
-    remarks: 'Completed in 10.5 hours via SO conversion',
-    popupShown: 0,
-    popupSkipped: 0
-  },
-  {
-    id: 'DRAFT-2025-008',
-    type: 'TO',
-    docId: 'TO-2025-015',
-    webOrder: 'WO-2025-007',
-    batchId: 'BATCH-003',
-    source: 'Store S-HYD-01 (Hyderabad)',
-    destination: 'Central Warehouse',
-    status: 'Partially Fulfilled',
-    trackingStatus: 'TO Partially Received',
-    items: [
-      {
-        lineId: 'WOL-007-1',
-        product: 'Cetirizine 10mg',
-        sku: 'MED-CET-10',
-        qtyReq: 400,
-        qtyFulfilled: 200,
-        qtyPending: 200,
-        status: 'Partial'
-      }
-    ],
-    qtyReq: 400,
-    qtyFulfilled: 200,
-    retry: 0,
-    created: '2025-10-24 16:00:00',
-    lastUpdated: '2025-10-25 04:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-Store01',
-    remarks: 'Partial fulfilment (12 hours). 200 remaining pending',
-    popupShown: 3,
-    popupSkipped: 1
-  },
-  {
-    id: 'DRAFT-2025-009',
-    type: 'TO',
-    docId: 'TO-2025-016',
-    webOrder: 'WO-2025-007',
-    batchId: 'BATCH-003-R1',
-    source: 'Store S-MUM-01 (Mumbai)',
-    destination: 'Central Warehouse',
-    status: 'In Dispatch',
-    trackingStatus: 'TO In Transit',
-    items: [
-      {
-        lineId: 'WOL-007-1',
-        product: 'Cetirizine 10mg',
-        sku: 'MED-CET-10',
-        qtyReq: 200,
-        qtyFulfilled: 0,
-        qtyPending: 200,
-        status: 'In Dispatch',
-        remarks: 'Remaining qty from TO-2025-015'
-      }
-    ],
-    qtyReq: 200,
-    qtyFulfilled: 0,
-    retry: 1,
-    created: '2025-10-25 05:00:00',
-    lastUpdated: '2025-10-25 08:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-Store05',
-    remarks: 'Retry 1: Unfulfilled items from TO-2025-015 routed to Mumbai store',
-    popupShown: 2,
-    popupSkipped: 0
-  },
-  {
-    id: 'DRAFT-2025-010',
-    type: 'Market Purchase',
-    docId: 'MP-2025-001',
-    webOrder: 'WO-2025-005',
-    batchId: 'BATCH-003',
-  source: 'Market Purchase',
-    destination: 'Central Warehouse',
-    status: 'Approved',
-  trackingStatus: 'Market Quote Approved',
-    items: [
-      {
-        lineId: 'WOL-005-1',
-        product: 'Crocin Advance',
-        sku: 'MED-CRO-ADV',
-        qtyReq: 300,
-        qtyFulfilled: 0,
-        qtyPending: 300,
-        status: 'Approved',
-        remarks: 'Market purchase approved after store rejection'
-      }
-    ],
-    qtyReq: 300,
-    qtyFulfilled: 0,
-    retry: 3,
-    created: '2025-10-26 12:00:00',
-    lastUpdated: '2025-10-26 14:00:00',
-    createdBy: 'System (Auto-escalation)',
-    lastActionedBy: 'User-Admin-Purchase',
-  remarks: 'Escalated to market purchase after 3 failed attempts (Store rejected). Awaiting market confirmation.',
-    popupShown: 0,
-    popupSkipped: 0,
-    marketPurchase: true,
-    estimatedCost: 4500,
-  vendor: 'Market'
-  },
-  {
-    id: 'DRAFT-2025-011',
-    type: 'Market Purchase',
-    docId: 'MP-2025-002',
-    webOrder: 'WO-2025-005',
-    batchId: 'BATCH-003',
-  source: 'Market Purchase',
-    destination: 'Central Warehouse',
-    status: 'In Progress',
-  trackingStatus: 'Market Negotiation in Progress',
-    items: [
-      {
-        lineId: 'WOL-005-2',
-        product: 'Vicks Vaporub',
-        sku: 'MED-VCK-VAP',
-        qtyReq: 150,
-        qtyFulfilled: 0,
-        qtyPending: 150,
-        status: 'In Progress',
-        remarks: 'Market purchase in progress'
-      }
-    ],
-    qtyReq: 150,
-    qtyFulfilled: 0,
-    retry: 3,
-    created: '2025-10-26 12:00:00',
-    lastUpdated: '2025-10-27 10:00:00',
-    createdBy: 'System (Auto-escalation)',
-    lastActionedBy: 'User-Purchase-Team',
-  remarks: 'Market purchase in progress. Market negotiation ongoing. Items unavailable at warehouse, stores, and distributors.',
-    popupShown: 0,
-    popupSkipped: 0,
-    marketPurchase: true,
-    estimatedCost: 2250,
-  vendor: 'Market'
-  },
-  {
-    id: 'DRAFT-2025-012',
-    type: 'Market Purchase',
-    docId: 'MP-2025-003',
-    webOrder: 'WO-2025-010',
-    batchId: 'BATCH-005',
-  source: 'Market Purchase',
-    destination: 'Central Warehouse',
-    status: 'Fulfilled',
-    trackingStatus: 'Market Purchase Completed',
-    items: [
-      {
-        lineId: 'WOL-010-1',
-        product: 'Omeprazole 20mg',
-        sku: 'MED-OMP-20',
-        qtyReq: 150,
-        qtyFulfilled: 150,
-        qtyPending: 0,
-        status: 'Fulfilled',
-        remarks: 'Market purchase completed successfully'
-      }
-    ],
-    qtyReq: 150,
-    qtyFulfilled: 150,
-    retry: 2,
-    created: '2025-10-29 09:00:00',
-    lastUpdated: '2025-10-30 16:00:00',
-    createdBy: 'System (Auto-escalation)',
-    lastActionedBy: 'User-Purchase-Team',
-  remarks: 'Market purchase completed after 2 retries. Product unavailable in all regular channels. Successfully procured from market source.',
-    popupShown: 0,
-    popupSkipped: 0,
-    marketPurchase: true,
-    estimatedCost: 3000,
-    actualCost: 3150,
-  vendor: 'Market'
-  },
-  {
-    id: 'DRAFT-2025-013',
-    type: 'PO',
-    docId: 'PO-2025-003',
-    webOrder: 'WO-2025-009',
-    batchId: 'BATCH-006',
-    source: 'MedPlus Distributor DIST-MP-003',
-    destination: 'Central Warehouse',
-    status: 'Rejected',
-    trackingStatus: 'PO Rejected - Out of Stock',
-    items: [
-      {
-        lineId: 'WOL-009-1',
-        product: 'Azithromycin 500mg',
-        sku: 'MED-AZI-500',
-        qtyReq: 200,
-        qtyFulfilled: 0,
-        qtyPending: 200,
-        status: 'Rejected',
-        remarks: 'Distributor out of stock'
-      }
-    ],
-    qtyReq: 200,
-    qtyFulfilled: 0,
-    retry: 2,
-    created: '2025-10-31 10:00:00',
-    lastUpdated: '2025-11-01 09:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-Distributor',
-    remarks: 'Distributor rejected - Out of stock. Marked for market purchase escalation.',
-    popupShown: 2,
-    popupSkipped: 0,
-    marketPurchase: false
-  },
-  {
-    id: 'DRAFT-2025-014',
-    type: 'Market Purchase',
-    docId: 'MP-2025-004',
-    webOrder: 'WO-2025-009',
-    batchId: 'BATCH-006-MP',
-  source: 'Market Purchase',
-    destination: 'Central Warehouse',
-    status: 'Approved',
-  trackingStatus: 'Market Quote Received',
-    items: [
-      {
-        lineId: 'WOL-009-1',
-        product: 'Azithromycin 500mg',
-        sku: 'MED-AZI-500',
-        qtyReq: 200,
-        qtyFulfilled: 0,
-        qtyPending: 200,
-        status: 'Approved',
-        remarks: 'Escalated to market purchase after distributor rejection'
-      }
-    ],
-    qtyReq: 200,
-    qtyFulfilled: 0,
-    retry: 2,
-    created: '2025-11-01 10:00:00',
-    lastUpdated: '2025-11-01 14:00:00',
-    createdBy: 'System (Auto-escalation)',
-    lastActionedBy: 'User-Admin-Purchase',
-  remarks: 'Auto-escalated to market purchase after PO rejection. Market quote received. Awaiting approval.',
-    popupShown: 0,
-    popupSkipped: 0,
-    marketPurchase: true,
-    estimatedCost: 5000,
-  vendor: 'Market'
-  },
-  {
-    id: 'DRAFT-2025-015',
-    type: 'TO',
-    docId: 'TO-2025-020',
-    webOrder: 'WO-2025-011',
-    batchId: 'BATCH-007',
-    source: 'Store S-DEL-01 (Delhi)',
-    destination: 'Central Warehouse',
-    status: 'Draft',
-    trackingStatus: 'Draft Created',
     items: [
       {
         lineId: 'WOL-011-1',
-        product: 'Ibuprofen 400mg',
-        sku: 'MED-IBU-400',
-        qtyReq: 100,
-        qtyFulfilled: 0,
-        qtyPending: 100,
-        status: 'Pending',
-        remarks: 'New order from Delhi store'
+        product: 'Crocin 650mg',
+        sku: 'MED-CRO-650',
+        qty: 400,
+        qtyFulfilled: 200,
+        qtyPending: 200,
+        status: 'Partially Fulfilled',
+        sourceType: 'Store',
+        source: 'S-MUM-01',
+        linkedDocs: ['TO-2025-020', 'TO-2025-020-R1'],
+        retries: 1
       },
       {
         lineId: 'WOL-011-2',
-        product: 'Aspirin 75mg',
-        sku: 'MED-ASP-75',
-        qtyReq: 150,
+        product: 'Disprin 325mg',
+        sku: 'MED-DIS-325',
+        qty: 300,
+        qtyFulfilled: 300,
+        qtyPending: 0,
+        status: 'Completely Fulfilled',
+        sourceType: 'Store',
+        source: 'S-MUM-02',
+        linkedDocs: ['TO-2025-021'],
+        retries: 0
+      },
+      {
+        lineId: 'WOL-011-3',
+        product: 'Combiflam',
+        sku: 'MED-COM-TAB',
+        qty: 250,
+        qtyFulfilled: 0,
+        qtyPending: 250,
+        status: 'Draft Created',
+        sourceType: 'Store',
+        source: 'S-MUM-03',
+        linkedDocs: ['DRAFT-2025-022'],
+        retries: 2
+      },
+      {
+        lineId: 'WOL-011-4',
+        product: 'Vicks Action 500',
+        sku: 'MED-VCK-500',
+        qty: 150,
         qtyFulfilled: 0,
         qtyPending: 150,
-        status: 'Pending',
-        remarks: 'New order from Delhi store'
+        status: 'NA internally',
+        sourceType: null,
+        source: '',
+        linkedDocs: [],
+        retries: 3
       }
     ],
-    qtyReq: 250,
-    qtyFulfilled: 0,
-    retry: 0,
-    created: '2025-11-02 10:00:00',
-    lastUpdated: '2025-11-02 10:00:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'System Scheduler',
-    remarks: 'New draft created for Delhi store order',
-    popupShown: 0,
-    popupSkipped: 0
+    created: '2025-11-01 10:00:00',
+    lastUpdated: '2025-11-05 16:30:00',
+    age: 6,
+    totalItems: 4,
+    remarks: 'Large multi-product order with mixed fulfillment status and varying retry counts'
   },
   {
-    id: 'DRAFT-2025-016',
-    type: 'PO',
-    docId: 'PO-2025-005',
-    webOrder: 'WO-2025-012',
-    batchId: 'BATCH-008',
-    source: 'MedPlus Distributor DIST-MP-004',
-    destination: 'Central Warehouse',
-    status: 'Accepted',
-    trackingStatus: 'SO Created - Awaiting Dispatch',
+    id: 'WO-2025-012',
+    customer: 'Apollo Pharmacy - Bangalore',
+    status: 'Approved',
     items: [
       {
         lineId: 'WOL-012-1',
         product: 'Dolo 650mg',
-        sku: 'MED-DOL-650',
-        qtyReq: 200,
-        qtyFulfilled: 0,
-        qtyPending: 200,
-        status: 'Accepted',
-        remarks: 'Additional order for Dolo 650mg'
+        sku: 'MED-DLO-650',
+        qty: 500,
+        qtyFulfilled: 150,
+        qtyPending: 350,
+        status: 'Partially Fulfilled Internally',
+        sourceType: 'Store',
+        source: 'S-BAN-05, S-BAN-07',
+        linkedDocs: ['TO-2025-023', 'TO-2025-024', 'TO-2025-024-R1'],
+        retries: 1
       },
       {
         lineId: 'WOL-012-2',
+        product: 'Calpol 500mg',
+        sku: 'MED-CAL-500',
+        qty: 600,
+        qtyFulfilled: 200,
+        qtyPending: 400,
+        status: 'PO Created',
+        sourceType: 'Distributor',
+        source: 'DIST-03',
+        linkedDocs: ['TO-2025-025', 'PO-2025-004'],
+        retries: 2
+      },
+      {
+        lineId: 'WOL-012-3',
+        product: 'Brufen 400mg',
+        sku: 'MED-BRU-400',
+        qty: 300,
+        qtyFulfilled: 0,
+        qtyPending: 300,
+        status: 'TO Created',
+        sourceType: 'Store',
+        source: 'S-BAN-10',
+        linkedDocs: ['TO-2025-026'],
+        retries: 0
+      }
+    ],
+    created: '2025-11-02 14:30:00',
+    lastUpdated: '2025-11-06 11:20:00',
+    age: 5,
+    totalItems: 3,
+    remarks: 'Bulk pharmacy order with multiple sourcing attempts'
+  },
+  {
+    id: 'WO-2025-013',
+    customer: 'MedPlus - Kolkata Branch',
+    status: 'Approved',
+    items: [
+      {
+        lineId: 'WOL-013-1',
+        product: 'Sinarest',
+        sku: 'MED-SIN-TAB',
+        qty: 200,
+        qtyFulfilled: 0,
+        qtyPending: 200,
+        status: 'Market Purchase Initiated',
+        sourceType: null,
+        source: 'Market',
+        linkedDocs: ['MP-2025-005'],
+        retries: 3
+      },
+      {
+        lineId: 'WOL-013-2',
+        product: 'D-Cold Total',
+        sku: 'MED-DCL-TAB',
+        qty: 180,
+        qtyFulfilled: 0,
+        qtyPending: 180,
+        status: 'Draft Created',
+        sourceType: 'Distributor',
+        source: 'DIST-04',
+        linkedDocs: ['DRAFT-2025-027'],
+        retries: 2
+      }
+    ],
+    created: '2025-11-03 08:15:00',
+    lastUpdated: '2025-11-07 15:45:00',
+    age: 4,
+    totalItems: 2,
+    remarks: 'Cold & flu medicines - high retry counts due to stock shortage'
+  }
+];
+
+// Sourcing Orders (TO/PO Level Tracking Dashboard Data)
+export const sourcingOrders = [
+  {
+    id: 'RECORD-2025-010',
+    type: 'TO',
+    docId: 'TO-2025-001',
+    webOrder: 'WO-2025-001',
+    batchId: 'BATCH-2025-A',
+    source: 'S-HYD-01',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'In transit',
+    created: '2025-10-28 10:00:00',
+    lastUpdated: '2025-10-29 14:00:00',
+    createdBy: 'System',
+    remarks: '',
+    retry: 0,
+    qtyReq: 200,
+    qtyFulfilled: 150,
+    items: [
+      {
+        lineId: 'L-001',
+        product: 'Paracetamol 500mg',
+        sku: 'MED-PAR-500',
+        qtyReq: 200,
+        qtyFulfilled: 150,
+        status: 'Partially Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-011',
+    type: 'TO',
+    docId: 'TO-2025-002',
+    webOrder: 'WO-2025-001',
+    batchId: 'BATCH-2025-A',
+    source: 'S-HYD-03',
+    destination: 'WH-LOCAL-HYD',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-10-28 11:00:00',
+    lastUpdated: '2025-10-29 18:00:00',
+    createdBy: 'System',
+    remarks: '',
+    retry: 0,
+    qtyReq: 100,
+    qtyFulfilled: 100,
+    items: [
+      {
+        lineId: 'L-002',
+        product: 'Paracetamol 500mg',
+        sku: 'MED-PAR-500',
+        qtyReq: 100,
+        qtyFulfilled: 100,
+        status: 'Completely Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-010-RETRY',
+    type: 'TO',
+    docId: 'TO-2025-001-RETRY',
+    webOrder: 'WO-2025-001',
+    batchId: 'BATCH-2025-A-R1',
+    source: 'S-HYD-06',
+    destination: 'WH-LOCAL-HYD',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-10-30 10:00:00',
+    lastUpdated: '2025-10-30 10:00:00',
+    createdBy: 'System',
+    remarks: 'Retry draft for remaining 50 units from TO-2025-001',
+    retry: 1,
+    qtyReq: 50,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-001-R1',
+        product: 'Paracetamol 500mg',
+        sku: 'MED-PAR-500',
+        qtyReq: 50,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-005',
+    type: 'TO',
+    docId: 'DRAFT-2025-005',
+    webOrder: 'WO-2025-002',
+    batchId: 'BATCH-2025-A',
+    source: 'S-BAN-02',
+    destination: 'WH-LOCAL-BAN',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-10-28 10:15:00',
+    lastUpdated: '2025-10-28 10:15:00',
+    createdBy: 'System',
+    remarks: 'Awaiting store confirmation',
+    retry: 0,
+    qtyReq: 200,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-005',
+        product: 'Aspirin 75mg',
+        sku: 'MED-ASP-75',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-012',
+    type: 'TO',
+    docId: 'TO-2025-012',
+    webOrder: 'WO-2025-003',
+    batchId: 'BATCH-2025-B',
+    source: 'S-HYD-05',
+    destination: 'WH-LOCAL-HYD',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-10-27 14:30:00',
+    lastUpdated: '2025-10-27 14:30:00',
+    createdBy: 'System',
+    remarks: '',
+    retry: 0,
+    qtyReq: 500,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-012',
+        product: 'Vitamin D3 1000IU',
+        sku: 'MED-VD3-1000',
+        qtyReq: 500,
+        qtyFulfilled: 0,
+        status: 'TO Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-020',
+    type: 'TO',
+    docId: 'TO-2025-010',
+    webOrder: 'WO-2025-004',
+    batchId: 'BATCH-2025-B',
+    source: 'S-BAN-02',
+    destination: 'WH-LOCAL-BAN',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-10-26 11:30:00',
+    lastUpdated: '2025-10-26 18:00:00',
+    createdBy: 'System',
+    remarks: '',
+    retry: 0,
+    qtyReq: 100,
+    qtyFulfilled: 100,
+    items: [
+      {
+        lineId: 'L-010',
+        product: 'Amoxicillin 500mg',
+        sku: 'MED-AMX-500',
+        qtyReq: 100,
+        qtyFulfilled: 100,
+        status: 'Completely Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MP-002',
+    type: 'Market Purchase',
+    docId: 'MP-2025-002',
+    webOrder: 'WO-2025-005',
+    batchId: 'BATCH-2025-A',
+    source: 'Market',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-10-29 16:00:00',
+    lastUpdated: '2025-10-29 16:00:00',
+    createdBy: 'System',
+    remarks: 'NA internally after 3 retries',
+    retry: 3,
+    qtyReq: 150,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-MP-002',
+        product: 'Vicks Vaporub',
+        sku: 'MED-VCK-VAP',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'Market Purchase Initiated'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-014',
+    type: 'TO',
+    docId: 'TO-2025-014',
+    webOrder: 'WO-2025-006',
+    batchId: 'BATCH-2025-C',
+    source: 'S-HYD-02',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-10-30 12:30:00',
+    lastUpdated: '2025-10-30 14:30:00',
+    createdBy: 'System',
+    remarks: 'Partial fulfillment - 50/200 units fulfilled',
+    retry: 0,
+    qtyReq: 200,
+    qtyFulfilled: 50,
+    items: [
+      {
+        lineId: 'L-014',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 200,
+        qtyFulfilled: 50,
+        status: 'Partially Fulfilled Internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-014-RETRY',
+    type: 'TO',
+    docId: 'TO-2025-014-RETRY',
+    webOrder: 'WO-2025-006',
+    batchId: 'BATCH-2025-C-R1',
+    source: 'S-MUM-03',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-10-31 09:00:00',
+    lastUpdated: '2025-10-31 09:00:00',
+    createdBy: 'System',
+    remarks: 'Retry draft for remaining 150 units from TO-2025-014',
+    retry: 1,
+    qtyReq: 150,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-014-R1',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-015',
+    type: 'TO',
+    docId: 'TO-2025-015',
+    webOrder: 'WO-2025-007',
+    batchId: 'BATCH-2025-C',
+    source: 'S-HYD-01',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-10-24 17:00:00',
+    lastUpdated: '2025-10-28 10:00:00',
+    createdBy: 'System',
+    remarks: '',
+    retry: 0,
+    qtyReq: 200,
+    qtyFulfilled: 200,
+    items: [
+      {
+        lineId: 'L-015',
+        product: 'Cetirizine 10mg',
+        sku: 'MED-CET-10',
+        qtyReq: 200,
+        qtyFulfilled: 200,
+        status: 'Completely Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-016',
+    type: 'TO',
+    docId: 'TO-2025-016',
+    webOrder: 'WO-2025-007',
+    batchId: 'BATCH-2025-C',
+    source: 'S-MUM-05',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-10-24 17:30:00',
+    lastUpdated: '2025-10-28 10:00:00',
+    createdBy: 'System',
+    remarks: '',
+    retry: 0,
+    qtyReq: 200,
+    qtyFulfilled: 200,
+    items: [
+      {
+        lineId: 'L-016',
+        product: 'Cetirizine 10mg',
+        sku: 'MED-CET-10',
+        qtyReq: 200,
+        qtyFulfilled: 200,
+        status: 'Completely Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-002',
+    type: 'PO',
+    docId: 'PO-2025-002',
+    webOrder: 'WO-2025-008',
+    batchId: 'BATCH-2025-B',
+    source: 'DIST-01',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-10-20 10:00:00',
+    lastUpdated: '2025-10-21 19:30:00',
+    createdBy: 'System',
+    remarks: 'Fulfilled via distributor',
+    retry: 0,
+    qtyReq: 100,
+    qtyFulfilled: 100,
+    items: [
+      {
+        lineId: 'L-002P',
+        product: 'Metformin 500mg',
+        sku: 'MED-MET-500',
+        qtyReq: 100,
+        qtyFulfilled: 100,
+        status: 'Completely Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-003',
+    type: 'PO',
+    docId: 'PO-2025-003',
+    webOrder: 'WO-2025-009',
+    batchId: 'BATCH-2025-D',
+    source: 'DIST-02',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-01 14:00:00',
+    lastUpdated: '2025-11-01 14:00:00',
+    createdBy: 'System',
+    remarks: 'After 2 retries at stores',
+    retry: 2,
+    qtyReq: 200,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-003P',
+        product: 'Azithromycin 500mg',
+        sku: 'MED-AZI-500',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        status: 'PO Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MP-003',
+    type: 'Market Purchase',
+    docId: 'MP-2025-003',
+    webOrder: 'WO-2025-010',
+    batchId: 'BATCH-2025-D',
+    source: 'Market',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-10-30 16:00:00',
+    lastUpdated: '2025-10-30 16:00:00',
+    createdBy: 'System',
+    remarks: 'Product not available in market',
+    retry: 2,
+    qtyReq: 150,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-MP-003',
+        product: 'Omeprazole 20mg',
+        sku: 'MED-OMP-20',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'NA in Market'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-020',
+    type: 'TO',
+    docId: 'TO-2025-020',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-2025-E',
+    source: 'S-MUM-01',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-01 11:00:00',
+    lastUpdated: '2025-11-03 14:00:00',
+    createdBy: 'System',
+    remarks: 'Crocin partially fulfilled - 200/400 units',
+    retry: 0,
+    qtyReq: 400,
+    qtyFulfilled: 200,
+    items: [
+      {
+        lineId: 'L-020',
+        product: 'Crocin 650mg',
+        sku: 'MED-CRO-650',
+        qtyReq: 400,
+        qtyFulfilled: 200,
+        status: 'Partially Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-020-R1',
+    type: 'TO',
+    docId: 'TO-2025-020-R1',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-2025-E-R1',
+    source: 'S-MUM-04',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-04 09:30:00',
+    lastUpdated: '2025-11-04 09:30:00',
+    createdBy: 'System',
+    remarks: 'Retry for remaining 200 units of Crocin',
+    retry: 1,
+    qtyReq: 200,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-020-R1',
+        product: 'Crocin 650mg',
+        sku: 'MED-CRO-650',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-021',
+    type: 'TO',
+    docId: 'TO-2025-021',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-2025-E',
+    source: 'S-MUM-02',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-01 11:15:00',
+    lastUpdated: '2025-11-02 16:30:00',
+    createdBy: 'System',
+    remarks: 'Disprin fully fulfilled',
+    retry: 0,
+    qtyReq: 300,
+    qtyFulfilled: 300,
+    items: [
+      {
+        lineId: 'L-021',
+        product: 'Disprin 325mg',
+        sku: 'MED-DIS-325',
+        qtyReq: 300,
+        qtyFulfilled: 300,
+        status: 'Completely Fulfilled'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-022',
+    type: 'TO',
+    docId: 'DRAFT-2025-022',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-2025-E-R2',
+    source: 'S-MUM-03',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-05 10:00:00',
+    lastUpdated: '2025-11-05 10:00:00',
+    createdBy: 'System',
+    remarks: 'Third attempt (retry=2) for Combiflam',
+    retry: 2,
+    qtyReq: 250,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-022',
+        product: 'Combiflam',
+        sku: 'MED-COM-TAB',
+        qtyReq: 250,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-023',
+    type: 'TO',
+    docId: 'TO-2025-023',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-F',
+    source: 'S-BAN-05',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-02 15:00:00',
+    lastUpdated: '2025-11-03 10:00:00',
+    createdBy: 'System',
+    remarks: 'First Dolo batch - 100 units',
+    retry: 0,
+    qtyReq: 250,
+    qtyFulfilled: 100,
+    items: [
+      {
+        lineId: 'L-023-1',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 250,
+        qtyFulfilled: 100,
+        status: 'Partially Fulfilled Internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-024',
+    type: 'TO',
+    docId: 'TO-2025-024',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-F',
+    source: 'S-BAN-07',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-02 15:30:00',
+    lastUpdated: '2025-11-04 09:00:00',
+    createdBy: 'System',
+    remarks: 'Second Dolo batch - 50/250 units fulfilled',
+    retry: 0,
+    qtyReq: 250,
+    qtyFulfilled: 50,
+    items: [
+      {
+        lineId: 'L-024-1',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 250,
+        qtyFulfilled: 50,
+        status: 'Partially Fulfilled Internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-024-R1',
+    type: 'TO',
+    docId: 'TO-2025-024-R1',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-F-R1',
+    source: 'S-BAN-09',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-05 08:00:00',
+    lastUpdated: '2025-11-05 08:00:00',
+    createdBy: 'System',
+    remarks: 'Retry for remaining 200 Dolo units',
+    retry: 1,
+    qtyReq: 200,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-024-R1',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-025',
+    type: 'TO',
+    docId: 'TO-2025-025',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-F',
+    source: 'S-BAN-08',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-02 16:00:00',
+    lastUpdated: '2025-11-04 11:00:00',
+    createdBy: 'System',
+    remarks: 'Calpol partially fulfilled from store - 200/400 units',
+    retry: 1,
+    qtyReq: 400,
+    qtyFulfilled: 200,
+    items: [
+      {
+        lineId: 'L-025',
+        product: 'Calpol 500mg',
+        sku: 'MED-CAL-500',
+        qtyReq: 400,
+        qtyFulfilled: 200,
+        status: 'Partially Fulfilled Internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-PO-004',
+    type: 'PO',
+    docId: 'PO-2025-004',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-F-R2',
+    source: 'DIST-03',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-05 14:00:00',
+    lastUpdated: '2025-11-05 14:00:00',
+    createdBy: 'System',
+    remarks: 'Escalated to distributor after 2 retries - remaining 200 Calpol units',
+    retry: 2,
+    qtyReq: 200,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-PO-004',
+        product: 'Calpol 500mg',
+        sku: 'MED-CAL-500',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        status: 'PO Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-026',
+    type: 'TO',
+    docId: 'TO-2025-026',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-F',
+    source: 'S-BAN-10',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-02 16:30:00',
+    lastUpdated: '2025-11-02 16:30:00',
+    createdBy: 'System',
+    remarks: 'Brufen - first attempt',
+    retry: 0,
+    qtyReq: 300,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-026',
+        product: 'Brufen 400mg',
+        sku: 'MED-BRU-400',
+        qtyReq: 300,
+        qtyFulfilled: 0,
+        status: 'TO Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MULTI-027',
+    type: 'TO',
+    docId: 'TO-2025-027-MULTI',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-F',
+    source: 'S-BAN-11',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'In transit',
+    created: '2025-11-06 10:00:00',
+    lastUpdated: '2025-11-07 14:00:00',
+    createdBy: 'System',
+    remarks: 'Multi-product TO with mixed fulfillment',
+    retry: 0,
+    qtyReq: 800,
+    qtyFulfilled: 250,
+    items: [
+      {
+        lineId: 'L-027-1',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 150,
+        qtyFulfilled: 50,
+        status: 'Partially Fulfilled Internally'
+      },
+      {
+        lineId: 'L-027-2',
+        product: 'Calpol 500mg',
+        sku: 'MED-CAL-500',
+        qtyReq: 200,
+        qtyFulfilled: 200,
+        status: 'Completely Fulfilled'
+      },
+      {
+        lineId: 'L-027-3',
+        product: 'Brufen 400mg',
+        sku: 'MED-BRU-400',
+        qtyReq: 450,
+        qtyFulfilled: 0,
+        status: 'Pending'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MP-005',
+    type: 'Market Purchase',
+    docId: 'MP-2025-005',
+    webOrder: 'WO-2025-013',
+    batchId: 'BATCH-2025-G',
+    source: 'Market',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-07 09:00:00',
+    lastUpdated: '2025-11-07 09:00:00',
+    createdBy: 'System',
+    remarks: 'Sinarest - escalated to market after 3 retries',
+    retry: 3,
+    qtyReq: 200,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-MP-005',
+        product: 'Sinarest',
+        sku: 'MED-SIN-TAB',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        status: 'Market Purchase Initiated'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-027',
+    type: 'TO',
+    docId: 'DRAFT-2025-027',
+    webOrder: 'WO-2025-013',
+    batchId: 'BATCH-2025-G-R2',
+    source: 'DIST-04',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-07 10:00:00',
+    lastUpdated: '2025-11-07 10:00:00',
+    createdBy: 'System',
+    remarks: 'D-Cold - third attempt from distributor',
+    retry: 2,
+    qtyReq: 180,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-027',
+        product: 'D-Cold Total',
+        sku: 'MED-DCL-TAB',
+        qtyReq: 180,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MULTI-028',
+    type: 'TO',
+    docId: 'TO-2025-028-MULTI',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-2025-H',
+    source: 'S-HYD-15',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-05 11:00:00',
+    lastUpdated: '2025-11-08 16:00:00',
+    createdBy: 'System',
+    remarks: 'Multi-product TO - all items fulfilled',
+    retry: 0,
+    qtyReq: 700,
+    qtyFulfilled: 700,
+    items: [
+      {
+        lineId: 'L-028-1',
         product: 'Paracetamol 500mg',
         sku: 'MED-PAR-500',
         qtyReq: 250,
-        qtyFulfilled: 0,
-        qtyPending: 250,
-        status: 'Accepted',
-        remarks: 'High demand product reorder'
+        qtyFulfilled: 250,
+        status: 'Completely Fulfilled'
+      },
+      {
+        lineId: 'L-028-2',
+        product: 'Aspirin 75mg',
+        sku: 'MED-ASP-75',
+        qtyReq: 200,
+        qtyFulfilled: 200,
+        status: 'Completely Fulfilled'
+      },
+      {
+        lineId: 'L-028-3',
+        product: 'Ibuprofen 400mg',
+        sku: 'MED-IBU-400',
+        qtyReq: 150,
+        qtyFulfilled: 150,
+        status: 'Completely Fulfilled'
+      },
+      {
+        lineId: 'L-028-4',
+        product: 'Cetirizine 10mg',
+        sku: 'MED-CET-10',
+        qtyReq: 100,
+        qtyFulfilled: 100,
+        status: 'Completely Fulfilled'
       }
-    ],
-    qtyReq: 450,
-    qtyFulfilled: 0,
+    ]
+  },
+  {
+    id: 'RECORD-2025-MULTI-029',
+    type: 'PO',
+    docId: 'PO-2025-029-MULTI',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-2025-H-R1',
+    source: 'DIST-07',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Dispatched',
+    created: '2025-11-06 14:00:00',
+    lastUpdated: '2025-11-09 10:00:00',
+    createdBy: 'System',
+    remarks: 'Multi-product PO - partial fulfillment, 3 out of 5 products received',
+    retry: 1,
+    qtyReq: 850,
+    qtyFulfilled: 480,
+    items: [
+      {
+        lineId: 'L-029-1',
+        product: 'Paracetamol 500mg',
+        sku: 'MED-PAR-500',
+        qtyReq: 150,
+        qtyFulfilled: 150,
+        status: 'Completely Fulfilled'
+      },
+      {
+        lineId: 'L-029-2',
+        product: 'Aspirin 75mg',
+        sku: 'MED-ASP-75',
+        qtyReq: 200,
+        qtyFulfilled: 200,
+        status: 'Completely Fulfilled'
+      },
+      {
+        lineId: 'L-029-3',
+        product: 'Ibuprofen 400mg',
+        sku: 'MED-IBU-400',
+        qtyReq: 180,
+        qtyFulfilled: 130,
+        status: 'Partially Fulfilled'
+      },
+      {
+        lineId: 'L-029-4',
+        product: 'Cetirizine 10mg',
+        sku: 'MED-CET-10',
+        qtyReq: 170,
+        qtyFulfilled: 0,
+        status: 'Pending'
+      },
+      {
+        lineId: 'L-029-5',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'Pending'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MULTI-030',
+    type: 'TO',
+    docId: 'TO-2025-030-MULTI',
+    webOrder: 'WO-2025-012',
+    batchId: 'BATCH-2025-I',
+    source: 'S-BAN-20',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-08 09:00:00',
+    lastUpdated: '2025-11-08 09:00:00',
+    createdBy: 'System',
+    remarks: 'Multi-product TO - newly created draft',
     retry: 0,
-    created: '2025-11-02 14:00:00',
-    lastUpdated: '2025-11-02 15:30:00',
-    createdBy: 'System Scheduler',
-    lastActionedBy: 'User-MedPlus',
-    remarks: 'SO created. Awaiting dispatch for high-demand products',
-    popupShown: 0,
-    popupSkipped: 0
+    qtyReq: 500,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-030-1',
+        product: 'Dolo 650mg',
+        sku: 'MED-DLO-650',
+        qtyReq: 200,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      },
+      {
+        lineId: 'L-030-2',
+        product: 'Calpol 500mg',
+        sku: 'MED-CAL-500',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      },
+      {
+        lineId: 'L-030-3',
+        product: 'Brufen 400mg',
+        sku: 'MED-BRU-400',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'Draft Created'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MULTI-031',
+    type: 'TO',
+    docId: 'TO-2025-031-MULTI',
+    webOrder: 'WO-2025-001',
+    batchId: 'BATCH-2025-J',
+    source: 'S-HYD-08',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'In transit',
+    created: '2025-11-01 13:00:00',
+    lastUpdated: '2025-11-05 11:00:00',
+    createdBy: 'System',
+    remarks: 'Multi-product TO with retry - mixed results',
+    retry: 2,
+    qtyReq: 450,
+    qtyFulfilled: 180,
+    items: [
+      {
+        lineId: 'L-031-1',
+        product: 'Paracetamol 500mg',
+        sku: 'MED-PAR-500',
+        qtyReq: 300,
+        qtyFulfilled: 180,
+        status: 'Partially Fulfilled'
+      },
+      {
+        lineId: 'L-031-2',
+        product: 'Ibuprofen 400mg',
+        sku: 'MED-IBU-400',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'Pending'
+      }
+    ]
   }
 ];

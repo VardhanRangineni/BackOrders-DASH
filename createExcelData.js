@@ -169,6 +169,3 @@ XLSX.utils.book_append_sheet(workbook, worksheet, 'Web Orders');
 // Write the file
 XLSX.writeFile(workbook, 'backorders_data.xlsx');
 
-console.log('✅ Excel file created successfully: backorders_data.xlsx');
-console.log('📊 Total rows:', webOrdersData.length);
-console.log('📦 Orders included: WO-2025-001 to WO-2025-005');

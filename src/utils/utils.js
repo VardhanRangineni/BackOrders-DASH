@@ -47,27 +47,60 @@ export const exportToCSV = (data, headers, fileName) => {
 
 export const getStatusBadgeClass = (status) => {
   switch (status) {
+    // Web Order Level Statuses
+    case 'Approved':
+      return 'bg-primary';
+    case 'Partially Fulfilled':
+      return 'bg-info';
+    case 'Fulfilled':
+      return 'bg-success';
+    
+    // Product Level Statuses
+    case 'Pending':
+      return 'bg-warning text-dark';
+    case 'Partially Fulfilled Internally':
+      return 'bg-info';
+    case 'Fully Fulfilled Internally':
+      return 'bg-success';
+    case 'Draft Created':
+      return 'bg-secondary';
+    case 'TO Created':
+    case 'PO Created':
+      return 'bg-primary';
+    case 'Completely Fulfilled':
+      return 'bg-success';
+    case 'NA internally':
+      return 'bg-danger';
+    case 'Market Purchase Initiated':
+      return 'bg-warning text-dark';
+    case 'NA in Market':
+      return 'bg-danger';
+    
+    // TO/PO Status (Document status)
+    case 'Generated':
+      return 'bg-secondary';
+    case 'Dispatched':
+      return 'bg-primary';
+    case 'In transit':
+      return 'bg-info';
+    case 'Received':
+      return 'bg-success';
+    
+    // Legacy statuses for backward compatibility
+    case 'Rejected':
+    case 'Cancelled':
+    case 'Exception':
+      return 'bg-danger';
     case 'Completed':
       return 'bg-success';
     case 'Pending Sourcing':
       return 'bg-warning text-dark';
-    case 'TO Created':
-    case 'PO Created':
     case 'Accepted':
     case 'In Dispatch':
       return 'bg-primary';
-    case 'Partially Fulfilled':
-      return 'bg-info';
     case 'Market Purchase':
     case 'In Progress':
-    case 'Approved':
       return 'bg-warning text-dark';
-    case 'Exception':
-    case 'Rejected':
-    case 'Cancelled':
-      return 'bg-danger';
-    case 'Fulfilled':
-      return 'bg-success';
     case 'Draft':
       return 'bg-warning text-dark';
     case 'Partial':
