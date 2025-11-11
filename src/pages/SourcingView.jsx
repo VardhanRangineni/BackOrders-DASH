@@ -596,11 +596,8 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
   return (
   <div>
-      <h2 className="mb-4 fw-bold">TO/PO-Level Tracking Dashboard</h2>
-      <p className="text-secondary mb-4">
-        Real-time view of all Transfer Orders (TO), Purchase Orders (PO), and Market Purchase orders with complete traceability, fulfilment progress, and retry audit. 
-        Products not available in warehouse, stores, or distributors are automatically escalated to market purchase.
-      </p>
+      <h2 className="mb-4 fw-bold">TO/PO Tracking Dashboard</h2>
+     
 
       {/* Table */}
       <Card>
@@ -711,10 +708,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
               </Col>
             </Row>
 
-            <Row className="g-2 mt-2" style={{ 
-              borderBottom: '1px solid #dee2e6',
-              paddingBottom: '1rem'
-            }}>
+            <Row className="g-2 mb-3 mt-2">
               <Col xs={12}>
                 <small className="text-muted fw-medium">Major Filtration:</small>
               </Col>

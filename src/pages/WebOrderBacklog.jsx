@@ -1239,7 +1239,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
   return (
     <div>
-      <h2 className="mb-4 fw-bold">Web Order Backlog Tracking</h2>
+      <h2 className="mb-4 fw-bold">Back Order Tracking</h2>
       
       {/* Debug indicator for highlighted order */}
       {highlightedWebOrder && (
@@ -1331,7 +1331,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 </Form.Select>
               </Col>
             </Row>
-            <Row className="g-2 mt-2">
+            <Row className="g-2 mb-3 mt-2">
               <Col xs={12}>
                 <h6 className="mb-2 small text-muted">Major Filtration</h6>
               </Col>
