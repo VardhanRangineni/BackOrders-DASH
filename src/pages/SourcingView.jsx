@@ -620,30 +620,30 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   };
 
   return (
-  <div>
-      <h2 className="mb-4 fw-bold">TO/PO Tracking Dashboard</h2>
+  <div className="px-2 px-md-3">
+      <h2 className="mb-3 mb-md-4 fw-bold fs-4 fs-md-3">TO/PO Tracking Dashboard</h2>
      
 
       {/* Table */}
       <Card>
-        <Card.Body>
+        <Card.Body className="p-2 p-md-3">
           {/* Filter Toggle Button */}
-          <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mb-3">
             <Button 
               variant="outline-primary" 
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              className="d-flex align-items-center gap-2"
+              className="d-flex align-items-center justify-content-center gap-2"
             >
               <i className={`bi bi-funnel${showFilters ? '-fill' : ''}`}></i>
               {showFilters ? 'Hide Filters' : 'Show Filters'}
               <i className={`bi bi-chevron-${showFilters ? 'up' : 'down'}`}></i>
             </Button>
-            <div className="d-flex align-items-center gap-2">
-              <div className="text-muted small">
+            <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2">
+              <div className="text-muted small text-center text-sm-start">
                 Showing {filteredOrders.length} of {sourcingOrders.length} records
               </div>
-              <Button variant="success" onClick={handleDownload} size="sm">
+              <Button variant="success" onClick={handleDownload} size="sm" className="d-flex align-items-center justify-content-center">
                 <i className="bi bi-download me-2"></i>
                 Download Excel
               </Button>
@@ -653,13 +653,13 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           {/* Filters - Collapsible */}
           {showFilters && (
             <>
-            <Row className="g-3 mb-3" style={{ 
+            <Row className="g-2 g-md-3 mb-3" style={{ 
               animation: 'slideDown 0.3s ease-out',
               borderBottom: '1px solid #dee2e6',
               paddingBottom: '1rem'
             }}>
               <Col xs={12}>
-                <h6 className="mb-0 fw-medium text-secondary">Filters & Search</h6>
+                <h6 className="mb-0 fw-medium text-secondary small">Filters & Search</h6>
               </Col>
               <Col xs={12} md={6} lg={4} xl={3}>
                 <Form.Label className="small text-muted mb-1">Search</Form.Label>
@@ -668,6 +668,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by ID, Web Order, Source..."
+                  size="sm"
                 />
               </Col>
               {/* ...existing filter columns... */}
@@ -677,6 +678,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   type="date"
                   value={startDateFilter}
                   onChange={(e) => setStartDateFilter(e.target.value)}
+                  size="sm"
                 />
               </Col>
               <Col xs={6} sm={6} md={3} lg={2} xl={2}>
@@ -685,13 +687,15 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   type="date"
                   value={endDateFilter}
                   onChange={(e) => setEndDateFilter(e.target.value)}
+                  size="sm"
                 />
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+              <Col xs={12} sm={6} md={4} lg={3} xl={2}>
                 <Form.Label className="small text-muted mb-1">Source Type</Form.Label>
                 <Form.Select
                   value={sourceTypeFilter}
                   onChange={(e) => setSourceTypeFilter(e.target.value)}
+                  size="sm"
                   style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
                 >
                   <option value="All">All Sources</option>
@@ -699,11 +703,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   <option value="Distributor">Distributor (PO)</option>
                 </Form.Select>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+              <Col xs={12} sm={6} md={4} lg={3} xl={2}>
                 <Form.Label className="small text-muted mb-1">Order Type</Form.Label>
                 <Form.Select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  size="sm"
                   style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
                 >
                   <option value="All">All Types</option>
@@ -712,11 +717,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   <option value="Market Purchase">Market Purchase</option>
                 </Form.Select>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2}>
+              <Col xs={12} sm={6} md={4} lg={3} xl={2}>
                 <Form.Label className="small text-muted mb-1">TO/PO Status</Form.Label>
                 <Form.Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  size="sm"
                   style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
                 >
                   <option value="All">All</option>
@@ -726,7 +732,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   <option value="Received">Received</option>
                 </Form.Select>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={1} className="d-flex align-items-end">
+              <Col xs={12} sm={6} md={4} lg={3} xl={2} className="d-flex align-items-end">
                 <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
                   Clear All
                 </Button>
@@ -734,7 +740,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
             </Row>
 
             <Row className="g-2 mb-3 mt-2">
-              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
                 <Button 
                   variant={showMarketPurchaseOnly ? "warning" : "outline-warning"} 
                   onClick={() => setShowMarketPurchaseOnly(!showMarketPurchaseOnly)}
@@ -744,7 +750,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   {showMarketPurchaseOnly ? "✓ " : ""}NA Internally
                 </Button>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
                 <Button 
                   variant={showRetryOnly ? "info" : "outline-info"} 
                   onClick={() => setShowRetryOnly(!showRetryOnly)}
@@ -754,7 +760,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   {showRetryOnly ? "✓ " : ""}Retried Orders
                 </Button>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+              <Col xs={12} sm={4} md={3} lg={2} xl={2}>
                 <Button 
                   variant="outline-danger"
                   onClick={handleShowProducts}
@@ -765,7 +771,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   Unfulfilled Products
                 </Button>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+              <Col xs={12} sm={8} md={6} lg={4} xl={3}>
                 <Form.Select
                   value={productStatusFilter}
                   onChange={(e) => setProductStatusFilter(e.target.value)}
@@ -792,11 +798,11 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
 
 
           {/* Table */}
-          <div className="table-responsive" style={{ overflowX: 'auto', minWidth: '1000px' }} ref={tableRef}>
-            <Table striped hover className="mb-0" style={{ width: '100%' }}>
+          <div className="table-responsive" ref={tableRef}>
+            <Table striped hover className="mb-0" size="sm" style={{ minWidth: '900px' }}>
               <thead className="table-light">
                 <tr>
-                  <th style={{ width: '120px' }}>
+                  <th style={{ width: '120px', minWidth: '120px' }}>
                     <Button
                       variant={selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "primary" : "outline-primary"}
                       size="sm"
@@ -806,17 +812,17 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                       {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect All" : "Select All"}
                     </Button>
                   </th>
-                  <th style={{ width: '120px' }}>Record ID</th>
-                  <th style={{ width: '80px' }}>Order Type</th>
-                  <th style={{ width: '120px' }}>TO/PO ID</th>
-                  <th style={{ width: '120px' }}>Linked Web Order No</th>
-                  <th style={{ width: '130px' }}>Source Location</th>
-                  <th style={{ width: '130px' }}>Destination Location</th>
-                  <th style={{ width: '150px' }}>Record Status</th>
-                  <th style={{ width: '150px' }}>TO/PO Status</th>
-                  <th style={{ width: '150px' }}>Created Date/Time</th>
-                  <th style={{ width: '100px' }}>Created By</th>
-                  <th style={{ width: '150px' }}>Remarks/Reason</th>
+                  <th style={{ minWidth: '120px' }}>Record ID</th>
+                  <th style={{ minWidth: '80px' }}>Order Type</th>
+                  <th style={{ minWidth: '120px' }}>TO/PO ID</th>
+                  <th style={{ minWidth: '120px' }}>Linked Web Order No</th>
+                  <th style={{ minWidth: '130px' }}>Source Location</th>
+                  <th style={{ minWidth: '130px' }}>Destination Location</th>
+                  <th style={{ minWidth: '150px' }}>Record Status</th>
+                  <th style={{ minWidth: '150px' }}>TO/PO Status</th>
+                  <th style={{ minWidth: '150px' }}>Created Date/Time</th>
+                  <th style={{ minWidth: '100px' }}>Created By</th>
+                  <th style={{ minWidth: '150px' }}>Remarks/Reason</th>
                 </tr>
               </thead>
               <tbody>

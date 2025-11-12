@@ -1445,8 +1445,8 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   };
 
   return (
-    <div>
-      <h2 className="mb-4 fw-bold">Back Order Tracking</h2>
+    <div className="px-2 px-md-3">
+      <h2 className="mb-3 mb-md-4 fw-bold fs-4 fs-md-3">Back Order Tracking</h2>
       
       {/* Debug indicator for highlighted order */}
       {highlightedWebOrder && (
@@ -1457,20 +1457,20 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
 
       {/* Table */}
       <Card>
-        <Card.Body>
+        <Card.Body className="p-2 p-md-3">
           {/* Filter Toggle Button */}
-          <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mb-3">
             <Button 
               variant="outline-primary" 
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              className="d-flex align-items-center gap-2"
+              className="d-flex align-items-center justify-content-center gap-2"
             >
               <i className={`bi bi-funnel${showFilters ? '-fill' : ''}`}></i>
               {showFilters ? 'Hide Filters' : 'Show Filters'}
               <i className={`bi bi-chevron-${showFilters ? 'up' : 'down'}`}></i>
             </Button>
-            <Button variant="success" onClick={handleDownload} size="sm">
+            <Button variant="success" onClick={handleDownload} size="sm" className="d-flex align-items-center justify-content-center">
               <i className="bi bi-download me-2"></i>Download Excel
             </Button>
           </div>
@@ -1478,13 +1478,13 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           {/* Filters - Collapsible */}
           {showFilters && (
             <>
-            <Row className="g-3 mb-3 animate__animated animate__fadeInDown" style={{ 
+            <Row className="g-2 g-md-3 mb-3 animate__animated animate__fadeInDown" style={{ 
               animation: 'slideDown 0.3s ease-out',
               borderBottom: '1px solid #dee2e6',
               paddingBottom: '1rem'
             }}>
               <Col xs={12}>
-                <h6 className="mb-0 fw-medium text-secondary">Filters</h6>
+                <h6 className="mb-0 fw-medium text-secondary small">Filters</h6>
               </Col>
               <Col xs={12} md={6} lg={4}>
                 <Form.Label className="small text-muted mb-1">Search</Form.Label>
@@ -1493,22 +1493,25 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by Order ID, Customer, Product, or SKU..."
+                  size="sm"
                 />
               </Col>
-              <Col xs={12} sm={6} md={6} lg={2}>
+              <Col xs={6} sm={6} md={3} lg={2}>
                 <Form.Label className="small text-muted mb-1">Order Start Date</Form.Label>
                 <Form.Control
                   type="date"
                   value={startDateFilter}
                   onChange={(e) => setStartDateFilter(e.target.value)}
+                  size="sm"
                 />
               </Col>
-              <Col xs={12} sm={6} md={6} lg={2}>
+              <Col xs={6} sm={6} md={3} lg={2}>
                 <Form.Label className="small text-muted mb-1">Order End Date</Form.Label>
                 <Form.Control
                   type="date"
                   value={endDateFilter}
                   onChange={(e) => setEndDateFilter(e.target.value)}
+                  size="sm"
                 />
               </Col>
               <Col xs={12} sm={6} md={4} lg={2}>
@@ -1516,6 +1519,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 <Form.Select
                   value={sourceFilter}
                   onChange={(e) => setSourceFilter(e.target.value)}
+                  size="sm"
                 >
                   <option value="All">All Sources</option>
                   <option value="Store (TO)">Store (TO)</option>
@@ -1530,6 +1534,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 <Form.Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  size="sm"
                 >
                   <option value="All">All Statuses</option>
                   <option value="Approved">Approved</option>
@@ -1539,7 +1544,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               </Col>
             </Row>
             <Row className="g-2 mb-3 mt-2">
-              <Col xs={6} sm={4} md={3} lg={2}>
+              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
                 <Button 
                   variant={naInternallyFilter ? "warning" : "outline-warning"}
                   onClick={() => setNaInternallyFilter(!naInternallyFilter)}
@@ -1549,7 +1554,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   {naInternallyFilter ? "✓ " : ""}NA Internally
                 </Button>
               </Col>
-              <Col xs={6} sm={4} md={3} lg={2}>
+              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
                 <Button 
                   variant={retriedOrdersFilter ? "info" : "outline-info"}
                   onClick={() => setRetriedOrdersFilter(!retriedOrdersFilter)}
@@ -1559,7 +1564,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   {retriedOrdersFilter ? "✓ " : ""}Retried Orders
                 </Button>
               </Col>
-              <Col xs={6} sm={4} md={3} lg={2}>
+              <Col xs={12} sm={4} md={3} lg={2} xl={2}>
                 <Button 
                   variant="danger"
                   onClick={handleShowProducts}
@@ -1570,7 +1575,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   Unfulfilled Products
                 </Button>
               </Col>
-              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+              <Col xs={12} sm={8} md={6} lg={4} xl={3}>
                 <Form.Select
                   value={productStatusFilter}
                   onChange={(e) => setProductStatusFilter(e.target.value)}
@@ -1590,7 +1595,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   <option value="NA in Market">NA in Market</option>
                 </Form.Select>
               </Col>
-              <Col xs={6} sm={4} md={2} lg={2} xl={1} className="d-flex align-items-end">
+              <Col xs={12} sm={4} md={3} lg={2} xl={2}>
                 <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
                   Clear All
                 </Button>
@@ -1614,11 +1619,11 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           `}</style>
 
           {/* Table */}
-          <div className="table-responsive" ref={tableRef} style={{ minWidth: '900px' }}>
-            <Table striped hover className="mb-0" style={{ width: '100%', tableLayout: 'fixed' }}>
+          <div className="table-responsive" ref={tableRef}>
+            <Table striped hover className="mb-0" size="sm" style={{ minWidth: '800px' }}>
               <thead className="table-light">
                 <tr>
-                  <th style={{ width: '120px' }}>
+                  <th style={{ width: '120px', minWidth: '120px' }}>
                     <Button
                       variant={selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "primary" : "outline-primary"}
                       size="sm"
@@ -1628,13 +1633,13 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                       {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect All" : "Select All"}
                     </Button>
                   </th>
-                  <th>Web Order ID</th>
-                  <th>Status</th>
-                  <th>Linked Doc</th>
-                  <th>Created</th>
-                  <th>Last Updated</th>
-                  <th>Age (Days)</th>
-                  <th>Actions</th>
+                  <th style={{ minWidth: '120px' }}>Web Order ID</th>
+                  <th style={{ minWidth: '100px' }}>Status</th>
+                  <th style={{ minWidth: '120px' }}>Linked Doc</th>
+                  <th style={{ minWidth: '110px' }}>Created</th>
+                  <th style={{ minWidth: '110px' }}>Last Updated</th>
+                  <th style={{ minWidth: '80px' }}>Age (Days)</th>
+                  <th style={{ minWidth: '100px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1763,23 +1768,23 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       </Modal>
 
       {/* Products Modal */}
-      <Modal show={showProductsModal} onHide={() => setShowProductsModal(false)} size="xl">
+      <Modal show={showProductsModal} onHide={() => setShowProductsModal(false)} size="xl" fullscreen="lg-down">
         <Modal.Header closeButton>
-          <Modal.Title>Unfulfilled Products in Selected Orders</Modal.Title>
+          <Modal.Title className="fs-5 fs-md-4">Unfulfilled Products in Selected Orders</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body className="p-2 p-md-3">
           {/* Products Table */}
-          <div className="table-responsive" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-            <Table striped bordered hover size="sm">
+          <div className="table-responsive" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            <Table striped bordered hover size="sm" style={{ minWidth: '700px' }}>
               <thead className="table-light sticky-top">
                 <tr>
-                  <th>SKU</th>
-                  <th>Product Name</th>
-                  <th style={{ width: '100px' }}>Qty Req</th>
-                  <th style={{ width: '100px' }}>Qty Fulfilled</th>
-                  <th style={{ width: '100px' }}>Qty Pending</th>
-                  <th>Order IDs</th>
-                  <th>Status by Order</th>
+                  <th style={{ minWidth: '100px' }}>SKU</th>
+                  <th style={{ minWidth: '150px' }}>Product Name</th>
+                  <th style={{ width: '90px', minWidth: '90px' }}>Qty Req</th>
+                  <th style={{ width: '100px', minWidth: '100px' }}>Qty Fulfilled</th>
+                  <th style={{ width: '100px', minWidth: '100px' }}>Qty Pending</th>
+                  <th style={{ minWidth: '150px' }}>Order IDs</th>
+                  <th style={{ minWidth: '200px' }}>Status by Order</th>
                 </tr>
               </thead>
               <tbody>
@@ -1823,7 +1828,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             </Table>
           </div>
 
-          <div className="mt-3 d-flex justify-content-between align-items-center">
+          <div className="mt-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
             <div className="text-muted">
               <small>
                 <strong>Total Products:</strong> {productsToShow.length} | 
@@ -1833,6 +1838,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             <Button
               variant="success"
               size="sm"
+              className="w-100 w-sm-auto"
               onClick={() => {
                 const exportData = productsToShow.map(item => ({
                   sku: item.sku || '',
@@ -1862,7 +1868,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowProductsModal(false)}>
+          <Button variant="secondary" onClick={() => setShowProductsModal(false)} className="w-100 w-sm-auto">
             Close
           </Button>
         </Modal.Footer>
