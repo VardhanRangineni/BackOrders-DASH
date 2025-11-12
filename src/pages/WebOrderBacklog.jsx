@@ -204,10 +204,13 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     // Flatten orders to include product line items
     const exportData = [];
     
+    console.log('Export starting - Total orders:', filteredOrders.length);
+    
     filteredOrders.forEach(order => {
-      if (order.products && order.products.length > 0) {
+      if (order.items && order.items.length > 0) {
         // Export each product as a separate row
-        order.products.forEach(item => {
+        console.log(`Processing ${order.id} with ${order.items.length} items`);
+        order.items.forEach(item => {
           exportData.push({
             id: order.id,
             customer: order.customer,
@@ -215,19 +218,24 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             created: order.created,
             lastUpdated: order.lastUpdated,
             age: order.age,
-            retry: order.retry,
-            orderRemarks: order.remarks,
+            totalItems: order.totalItems || '',
+            orderRemarks: order.remarks || '',
+            lineId: item.lineId || '',
             product: item.product,
             sku: item.sku,
             qty: item.qty,
             qtyFulfilled: item.qtyFulfilled,
             qtyPending: item.qtyPending,
             itemStatus: item.status,
+            sourceType: item.sourceType || '',
+            source: item.source || '',
             linkedDocs: item.linkedDocs?.join(', ') || '',
-            itemRemarks: item.remarks || ''
+            retries: item.retries || 0
           });
         });
       } else {
+        // If no items, export just the order
+        console.log(`Processing ${order.id} with NO items`);
         exportData.push({
           id: order.id,
           customer: order.customer,
@@ -235,28 +243,46 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           created: order.created,
           lastUpdated: order.lastUpdated,
           age: order.age,
-          retry: order.retry,
-          orderRemarks: order.remarks,
-          product: order.product || '',
+          totalItems: order.totalItems || '',
+          orderRemarks: order.remarks || '',
+          lineId: '',
+          product: '',
           sku: '',
-          qty: order.qty || 0,
-          qtyFulfilled: order.qtyFulfilled || 0,
-          qtyPending: '',
+          qty: 0,
+          qtyFulfilled: 0,
+          qtyPending: 0,
           itemStatus: '',
-          linkedDocs: order.linkedDoc || '',
-          itemRemarks: ''
+          sourceType: '',
+          source: '',
+          linkedDocs: '',
+          retries: 0
         });
       }
     });
     
+    console.log('Export data rows:', exportData.length);
+    console.log('Sample row:', exportData[0]);
+    
     const headers = {
-      id: 'Order ID', customer: 'Customer', status: 'Order Status',
-      created: 'Created', lastUpdated: 'Last Updated', age: 'Age', 
-      retry: 'Retry', orderRemarks: 'Order Remarks',
-      product: 'Product', sku: 'SKU', qty: 'Qty Req.', 
-      qtyFulfilled: 'Qty Fulfilled', qtyPending: 'Qty Pending',
-      itemStatus: 'Item Status',
-      linkedDocs: 'Linked Docs', itemRemarks: 'Item Remarks'
+      id: 'Web Order ID',
+      customer: 'Customer',
+      status: 'Order Status',
+      created: 'Created',
+      lastUpdated: 'Last Updated',
+      age: 'Age (Days)',
+      totalItems: 'Total Items',
+      orderRemarks: 'Order Remarks',
+      lineId: 'Line ID',
+      product: 'Product',
+      sku: 'SKU',
+      qty: 'Qty Ordered',
+      qtyFulfilled: 'Qty Fulfilled',
+      qtyPending: 'Qty Pending',
+      itemStatus: 'Product Status',
+      sourceType: 'Source Type',
+      source: 'Source',
+      linkedDocs: 'Linked TO/PO',
+      retries: 'Retries'
     };
     
     exportToCSV(exportData, headers, 'web_orders_export.csv');
