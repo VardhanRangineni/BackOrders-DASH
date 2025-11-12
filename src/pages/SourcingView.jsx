@@ -709,9 +709,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
             </Row>
 
             <Row className="g-2 mb-3 mt-2">
-              <Col xs={12}>
-                <small className="text-muted fw-medium">Major Filtration:</small>
-              </Col>
               <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
                 <Button 
                   variant={showMarketPurchaseOnly ? "warning" : "outline-warning"} 

@@ -195,7 +195,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     onShowToast(`Exported ${exportData.length} product line items from ${filteredOrders.length} orders to web_orders_export.csv`);
   };
 
-  const handleProductAction = (productId, actionValue) => {
+  const handleProductAction = (productId, actionValue, reason = null) => {
     
     // Find the product and its parent order
     let product = null;
@@ -617,6 +617,114 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           onShowToast('No pending quantity for market purchase', true);
         }
         break;
+
+      case 'manual_closure': {
+        // Update product status to "NA in Market" and mark as closed
+        setWebOrders(prevOrders => {
+          return prevOrders.map(order => {
+            if (order.id === parentOrder.id) {
+              const updatedItems = order.items.map(item => {
+                if ((item.lineId || item.id) === productId) {
+                  return {
+                    ...item,
+                    status: 'NA in Market',
+                    qtyFulfilled: 0,
+                    qtyPending: 0,
+                    remarks: `${item.remarks || ''}\n[${new Date().toISOString().slice(0, 19).replace('T', ' ')}] Manual Closure: ${reason}`.trim()
+                  };
+                }
+                return item;
+              });
+
+              // Determine parent order status
+              const allClosed = updatedItems.every(item => 
+                item.status === 'NA in Market' || 
+                item.status === 'Completely Fulfilled' || 
+                item.qtyPending === 0
+              );
+              const hasNAInMarket = updatedItems.some(item => item.status === 'NA in Market');
+              
+              let newOrderStatus = order.overallStatus || order.status;
+              if (allClosed) {
+                newOrderStatus = hasNAInMarket ? 'Rejected' : 'Fulfilled';
+              } else {
+                newOrderStatus = 'Partially Fulfilled';
+              }
+
+              const updatedOrder = {
+                ...order,
+                items: updatedItems,
+                overallStatus: newOrderStatus,
+                status: newOrderStatus,
+                lastUpdated: new Date().toISOString().slice(0, 19).replace('T', ' ')
+              };
+
+              // Refresh the modal view
+              setTimeout(() => {
+                handleViewDetails(updatedOrder);
+              }, 50);
+
+              return updatedOrder;
+            }
+            return order;
+          });
+        });
+
+        onShowToast(`❌ ${product.product} manually closed\n📝 Reason: ${reason}`);
+        break;
+      }
+
+      case 'raise_market_purchase': {
+        // Raise Market Purchase for NA internally products
+        setWebOrders(prevOrders => {
+          return prevOrders.map(order => {
+            if (order.id === parentOrder.id) {
+              const updatedItems = order.items.map(item => {
+                if ((item.lineId || item.id) === productId) {
+                  return {
+                    ...item,
+                    status: 'Market Purchase Initiated',
+                    sourceType: 'Market Purchase',
+                    source: 'Market',
+                    remarks: `${item.remarks || ''}\n[${new Date().toISOString().slice(0, 19).replace('T', ' ')}] Market Purchase initiated - Product NA internally`.trim()
+                  };
+                }
+                return item;
+              });
+
+              // Determine parent order status
+              const allCompleted = updatedItems.every(item => item.qtyPending === 0);
+              const hasMarketPurchase = updatedItems.some(item => item.status === 'Market Purchase Initiated');
+              
+              let newOrderStatus = order.overallStatus || order.status;
+              if (allCompleted) {
+                newOrderStatus = 'Fulfilled';
+              } else if (hasMarketPurchase) {
+                newOrderStatus = 'Partially Fulfilled';
+              }
+
+              const updatedOrder = {
+                ...order,
+                items: updatedItems,
+                overallStatus: newOrderStatus,
+                status: newOrderStatus,
+                lastUpdated: new Date().toISOString().slice(0, 19).replace('T', ' ')
+              };
+
+              // Refresh the modal view
+              setTimeout(() => {
+                handleViewDetails(updatedOrder);
+              }, 50);
+
+              return updatedOrder;
+            }
+            return order;
+          });
+        });
+
+        onShowToast(`🛒 ${product.product} raised for Market Purchase\n💰 Will be sourced from external market`);
+        break;
+      }
         
       default:
         break;
@@ -1332,9 +1440,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               </Col>
             </Row>
             <Row className="g-2 mb-3 mt-2">
-              <Col xs={12}>
-                <h6 className="mb-2 small text-muted">Major Filtration</h6>
-              </Col>
               <Col xs={6} sm={4} md={3} lg={2}>
                 <Button 
                   variant={naInternallyFilter ? "warning" : "outline-warning"}

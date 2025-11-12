@@ -1,12 +1,39 @@
-import React from 'react';
-import { Badge } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Badge, Modal, Button, Form } from 'react-bootstrap';
 import { getStatusBadgeClass } from '../utils/utils';
 
 const OrderDetailsModal = ({ order, onProductAction }) => {
-  const handleAction = (productId, action) => {
-    if (onProductAction) {
+  const [showClosureModal, setShowClosureModal] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState(null);
+  const [closureReason, setClosureReason] = useState('Product not available in market');
+  const [otherReason, setOtherReason] = useState('');
+
+  const handleAction = (productId, action, product) => {
+    if (action === 'manual_closure') {
+      setCurrentProduct(product);
+      setShowClosureModal(true);
+    } else if (onProductAction) {
       onProductAction(productId, action);
     }
+  };
+
+  const handleConfirmClosure = () => {
+    if (closureReason === 'Other' && !otherReason.trim()) {
+      alert('Please provide a reason for closure');
+      return;
+    }
+
+    const finalReason = closureReason === 'Other' ? otherReason : closureReason;
+    
+    if (onProductAction && currentProduct) {
+      onProductAction(currentProduct.lineId || currentProduct.id, 'manual_closure', finalReason);
+    }
+
+    // Reset modal state
+    setShowClosureModal(false);
+    setCurrentProduct(null);
+    setClosureReason('Product not available in market');
+    setOtherReason('');
   };
 
   const getProductActions = (item) => {
@@ -15,6 +42,11 @@ const OrderDetailsModal = ({ order, onProductAction }) => {
     // Always show View Linked TO/PO if available
     if (item.linkedDocs && item.linkedDocs.length > 0) {
       actions.push({ value: 'view_linked_to_po', label: 'View Linked TO/PO', icon: 'bi-link-45deg' });
+    }
+
+    // Raise Market Purchase for NA internally products
+    if (item.status === 'NA internally') {
+      actions.push({ value: 'raise_market_purchase', label: 'Raise Market Purchase', icon: 'bi-cart-plus' });
     }
 
     // Manual Closure option only for Market Purchase products
@@ -112,7 +144,7 @@ const OrderDetailsModal = ({ order, onProductAction }) => {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleAction(item.lineId || item.id, action.value);
+                                handleAction(item.lineId || item.id, action.value, item);
                               }}
                               style={{ width: '30px', height: '30px' }}
                               type="button"
@@ -203,6 +235,56 @@ const OrderDetailsModal = ({ order, onProductAction }) => {
           </div>
         </div>
       </div>
+
+      {/* Manual Closure Modal */}
+      <Modal show={showClosureModal} onHide={() => setShowClosureModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Manual Closure</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="text-muted mb-3">
+            Close product: <strong>{currentProduct?.product || currentProduct?.sku}</strong>
+          </p>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Reason for Closure</Form.Label>
+              <Form.Select 
+                value={closureReason}
+                onChange={(e) => {
+                  setClosureReason(e.target.value);
+                  if (e.target.value !== 'Other') {
+                    setOtherReason('');
+                  }
+                }}
+              >
+                <option value="Product not available in market">Product not available in market</option>
+                <option value="Other">Other</option>
+              </Form.Select>
+            </Form.Group>
+
+            {closureReason === 'Other' && (
+              <Form.Group className="mb-3">
+                <Form.Label>Please specify reason</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={otherReason}
+                  onChange={(e) => setOtherReason(e.target.value)}
+                  placeholder="Enter reason for manual closure..."
+                />
+              </Form.Group>
+            )}
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowClosureModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleConfirmClosure}>
+            Close Order
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
