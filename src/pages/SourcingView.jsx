@@ -126,6 +126,11 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     const productMap = new Map();
     selectedOrders.forEach(order => {
       (order.items || []).forEach(item => {
+        // Apply product status filter
+        if (productStatusFilter !== 'All' && item.status !== productStatusFilter) {
+          return; // Skip items that don't match the product status filter
+        }
+        
         const req = item.qtyReq ?? item.qty ?? 0;
         const fulfilled = item.qtyFulfilled ?? 0;
         const pending = req - fulfilled;

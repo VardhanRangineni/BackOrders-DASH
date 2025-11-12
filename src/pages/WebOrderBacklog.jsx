@@ -143,6 +143,11 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     
     selectedOrders.forEach(order => {
       (order.items || []).forEach(item => {
+        // Apply product status filter
+        if (productStatusFilter !== 'All' && item.status !== productStatusFilter) {
+          return; // Skip items that don't match the product status filter
+        }
+        
         const qtyReq = item.qty || item.qtyReq || 0;
         const qtyFulfilled = item.qtyFulfilled || 0;
         const qtyPending = item.qtyPending || (qtyReq - qtyFulfilled);
