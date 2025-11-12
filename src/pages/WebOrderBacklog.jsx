@@ -15,7 +15,13 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   const [showFilters, setShowFilters] = useState(false);
   const [naInternallyFilter, setNaInternallyFilter] = useState(false);
   const [retriedOrdersFilter, setRetriedOrdersFilter] = useState(false);
-  const [unfulfilledFilter, setUnfulfilledFilter] = useState(false);
+  
+  // Product-level view states
+  const [showProductsModal, setShowProductsModal] = useState(false);
+  const [productsToShow, setProductsToShow] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [productStatusFilter, setProductStatusFilter] = useState('All');
+  
   const highlightedRowRef = useRef(null);
   const tableRef = useRef(null);
 
@@ -109,13 +115,10 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         order.items?.some(item => (item.retries || 0) > 0);
     }
     
-    // Unfulfilled Products filter - products with pending quantity > 0
-    if (unfulfilledFilter) {
+    // Product Status filter - filter by specific product status
+    if (productStatusFilter !== 'All') {
       matchesMajorFilters = matchesMajorFilters && 
-        order.items?.some(item => {
-          const qtyPending = item.qtyPending || (item.qtyReq - item.qtyFulfilled);
-          return qtyPending > 0;
-        });
+        order.items?.some(item => item.status === productStatusFilter);
     }
     
     return matchesSearch && matchesStatus && matchesSource && matchesDateRange && matchesMajorFilters;
@@ -129,7 +132,72 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     setEndDateFilter('');
     setNaInternallyFilter(false);
     setRetriedOrdersFilter(false);
-    setUnfulfilledFilter(false);
+    setProductStatusFilter('All');
+    setSelectedRows([]);
+  };
+
+  // Product-level view functions
+  const buildProductsToShow = () => {
+    const selectedOrders = filteredOrders.filter(order => selectedRows.includes(order.id));
+    const productMap = new Map();
+    
+    selectedOrders.forEach(order => {
+      (order.items || []).forEach(item => {
+        const qtyReq = item.qty || item.qtyReq || 0;
+        const qtyFulfilled = item.qtyFulfilled || 0;
+        const qtyPending = item.qtyPending || (qtyReq - qtyFulfilled);
+        
+        if (qtyPending > 0) {
+          const sku = item.sku;
+          if (productMap.has(sku)) {
+            const existing = productMap.get(sku);
+            existing.qtyReq += qtyReq;
+            existing.qtyFulfilled += qtyFulfilled;
+            existing.qtyPending += qtyPending;
+            existing.orderIds.push(order.id);
+            existing.orders.push(order);
+            existing.statuses.push(item.status);
+            existing.statusByOrder[order.id] = item.status;
+          } else {
+            productMap.set(sku, {
+              ...item,
+              qtyReq,
+              qtyFulfilled,
+              qtyPending,
+              orderIds: [order.id],
+              orders: [order],
+              statuses: [item.status],
+              statusByOrder: { [order.id]: item.status }
+            });
+          }
+        }
+      });
+    });
+    
+    setProductsToShow(Array.from(productMap.values()));
+  };
+
+  const handleShowProducts = () => {
+    if (selectedRows.length === 0) {
+      onShowToast('Please select at least one order', true);
+      return;
+    }
+    buildProductsToShow();
+    setShowProductsModal(true);
+  };
+
+  const handleSelectAllOrders = () => {
+    if (selectedRows.length === filteredOrders.length && filteredOrders.length > 0) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(filteredOrders.map(order => order.id));
+    }
+  };
+
+  const handleRowSelect = (orderId) => {
+    setSelectedRows(prev =>
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
   };
 
   const handleDownload = () => {
@@ -1462,13 +1530,34 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               </Col>
               <Col xs={6} sm={4} md={3} lg={2}>
                 <Button 
-                  variant={unfulfilledFilter ? "danger" : "outline-danger"}
-                  onClick={() => setUnfulfilledFilter(!unfulfilledFilter)}
+                  variant="danger"
+                  onClick={handleShowProducts}
                   className="w-100"
                   size="sm"
+                  disabled={selectedRows.length === 0}
                 >
-                  {unfulfilledFilter ? "✓ " : ""}Unfulfilled Products
+                  Unfulfilled Products
                 </Button>
+              </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+                <Form.Select
+                  value={productStatusFilter}
+                  onChange={(e) => setProductStatusFilter(e.target.value)}
+                  size="sm"
+                >
+                  <option value="All">All Product Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Draft Created">Draft Created</option>
+                  <option value="TO Created">TO Created</option>
+                  <option value="PO Created">PO Created</option>
+                  <option value="Partially Fulfilled Internally">Partially Fulfilled Internally</option>
+                  <option value="Fully Fulfilled Internally">Fully Fulfilled Internally</option>
+                  <option value="Partially Fulfilled">Partially Fulfilled</option>
+                  <option value="Completely Fulfilled">Completely Fulfilled</option>
+                  <option value="NA internally">NA internally</option>
+                  <option value="Market Purchase Initiated">Market Purchase Initiated</option>
+                  <option value="NA in Market">NA in Market</option>
+                </Form.Select>
               </Col>
               <Col xs={6} sm={4} md={2} lg={2} xl={1} className="d-flex align-items-end">
                 <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
@@ -1498,6 +1587,16 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             <Table striped hover className="mb-0" style={{ width: '100%', tableLayout: 'fixed' }}>
               <thead className="table-light">
                 <tr>
+                  <th style={{ width: '120px' }}>
+                    <Button
+                      variant={selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "primary" : "outline-primary"}
+                      size="sm"
+                      onClick={handleSelectAllOrders}
+                      className="w-100"
+                    >
+                      {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect All" : "Select All"}
+                    </Button>
+                  </th>
                   <th>Web Order ID</th>
                   <th>Status</th>
                   <th>Linked Doc</th>
@@ -1510,7 +1609,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center text-secondary py-5">
+                    <td colSpan="8" className="text-center text-secondary py-5">
                       No orders found matching your criteria.
                     </td>
                   </tr>
@@ -1555,6 +1654,13 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                         ref={isHighlighted ? highlightedRowRef : null}
                         className={isHighlighted ? 'highlighted-row' : ''}
                       >
+                        <td>
+                          <Form.Check
+                            type="checkbox"
+                            checked={selectedRows.includes(order.id)}
+                            onChange={() => handleRowSelect(order.id)}
+                          />
+                        </td>
                         <td>
                           <Button 
                             variant="link" 
@@ -1623,6 +1729,112 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         <Modal.Body style={{ maxHeight: '500px', overflowY: 'auto' }}>
           {chartModalData.content}
         </Modal.Body>
+      </Modal>
+
+      {/* Products Modal */}
+      <Modal show={showProductsModal} onHide={() => setShowProductsModal(false)} size="xl">
+        <Modal.Header closeButton>
+          <Modal.Title>Unfulfilled Products in Selected Orders</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {/* Products Table */}
+          <div className="table-responsive" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <Table striped bordered hover size="sm">
+              <thead className="table-light sticky-top">
+                <tr>
+                  <th>SKU</th>
+                  <th>Product Name</th>
+                  <th style={{ width: '100px' }}>Qty Req</th>
+                  <th style={{ width: '100px' }}>Qty Fulfilled</th>
+                  <th style={{ width: '100px' }}>Qty Pending</th>
+                  <th>Order IDs</th>
+                  <th>Status by Order</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productsToShow.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center text-muted py-4">
+                      No unfulfilled products found in selected orders
+                    </td>
+                  </tr>
+                ) : (
+                  productsToShow.map((item, idx) => (
+                    <tr key={idx}>
+                      <td><small>{item.sku}</small></td>
+                      <td>{item.product}</td>
+                      <td className="text-end">{item.qtyReq}</td>
+                      <td className="text-end">{item.qtyFulfilled}</td>
+                      <td className="text-end"><strong>{item.qtyPending}</strong></td>
+                      <td>
+                        <div className="d-flex flex-wrap gap-1">
+                          {item.orderIds.map(orderId => (
+                            <span key={orderId} className="badge bg-info" style={{ fontSize: '0.75rem' }}>
+                              {orderId}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        {Object.entries(item.statusByOrder).map(([orderId, status]) => (
+                          <div key={orderId} className="mb-1">
+                            <span className="text-muted" style={{ fontSize: '0.7rem' }}>{orderId}:</span>
+                            <span className={`badge ${getStatusBadgeClass(status)} ms-1`} style={{ fontSize: '0.7rem' }}>
+                              {status}
+                            </span>
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </div>
+
+          <div className="mt-3 d-flex justify-content-between align-items-center">
+            <div className="text-muted">
+              <small>
+                <strong>Total Products:</strong> {productsToShow.length} | 
+                <strong className="ms-2">Total Pending Qty:</strong> {productsToShow.reduce((sum, p) => sum + p.qtyPending, 0)}
+              </small>
+            </div>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => {
+                const exportData = productsToShow.map(item => ({
+                  sku: item.sku || '',
+                  product: item.product || '',
+                  qtyReq: item.qtyReq,
+                  qtyFulfilled: item.qtyFulfilled,
+                  qtyPending: item.qtyPending,
+                  orderIds: item.orderIds.join(', '),
+                  statusByOrder: Object.entries(item.statusByOrder).map(([id, status]) => `${id}: ${status}`).join(' | ')
+                }));
+                const headers = {
+                  sku: 'SKU',
+                  product: 'Product',
+                  qtyReq: 'Qty Req',
+                  qtyFulfilled: 'Qty Fulfilled',
+                  qtyPending: 'Qty Pending',
+                  orderIds: 'Order IDs',
+                  statusByOrder: 'Status by Order'
+                };
+                exportToCSV(exportData, headers, 'unfulfilled_products_export.csv');
+                onShowToast(`Exported ${exportData.length} products to unfulfilled_products_export.csv`);
+              }}
+            >
+              <i className="bi bi-download me-2"></i>
+              Download Excel
+            </Button>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowProductsModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
       </Modal>
     </div>
   );

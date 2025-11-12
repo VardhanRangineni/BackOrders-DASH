@@ -466,6 +466,34 @@ export const webOrders = [
 // Sourcing Orders (TO/PO Level Tracking Dashboard Data)
 export const sourcingOrders = [
   {
+    id: 'RECORD-2025-025',
+    type: 'TO',
+    docId: 'TO-2025-025',
+    webOrder: 'WO-2025-015',
+    batchId: 'BATCH-2025-F',
+    source: 'S-DEL-03',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-10 10:00:00',
+    lastUpdated: '2025-11-11 15:30:00',
+    createdBy: 'System',
+    remarks: 'Partially fulfilled - awaiting retry draft creation',
+    retry: 0,
+    qtyReq: 300,
+    qtyFulfilled: 120,
+    items: [
+      {
+        lineId: 'L-025',
+        product: 'Vitamin C 500mg',
+        sku: 'MED-VTC-500',
+        qtyReq: 300,
+        qtyFulfilled: 120,
+        status: 'Partially Fulfilled'
+      }
+    ]
+  },
+  {
     id: 'RECORD-2025-010',
     type: 'TO',
     docId: 'TO-2025-001',
@@ -634,6 +662,34 @@ export const sourcingOrders = [
     ]
   },
   {
+    id: 'RECORD-2025-005-CRO',
+    type: 'TO',
+    docId: 'DRAFT-2025-005-CRO',
+    webOrder: 'WO-2025-005',
+    batchId: 'BATCH-2025-A-R3',
+    source: 'S-BAN-06',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-10-29 15:00:00',
+    lastUpdated: '2025-10-29 15:00:00',
+    createdBy: 'System',
+    remarks: 'Crocin Advance - marked NA internally after 3 retries',
+    retry: 3,
+    qtyReq: 300,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-005-CRO',
+        product: 'Crocin Advance',
+        sku: 'MED-CRO-ADV',
+        qtyReq: 300,
+        qtyFulfilled: 0,
+        status: 'NA internally'
+      }
+    ]
+  },
+  {
     id: 'RECORD-2025-MP-002',
     type: 'Market Purchase',
     docId: 'MP-2025-002',
@@ -741,7 +797,7 @@ export const sourcingOrders = [
         sku: 'MED-CET-10',
         qtyReq: 200,
         qtyFulfilled: 200,
-        status: 'Completely Fulfilled'
+        status: 'Fully Fulfilled Internally'
       }
     ]
   },
@@ -751,7 +807,7 @@ export const sourcingOrders = [
     docId: 'TO-2025-016',
     webOrder: 'WO-2025-007',
     batchId: 'BATCH-2025-C',
-    source: 'S-MUM-05',
+    source: 'S-HYD-05',
     destination: 'WH-CENTRAL-01',
     recordStatus: 'Fulfilled',
     status: 'Received',
@@ -769,7 +825,7 @@ export const sourcingOrders = [
         sku: 'MED-CET-10',
         qtyReq: 200,
         qtyFulfilled: 200,
-        status: 'Completely Fulfilled'
+        status: 'Fully Fulfilled Internally'
       }
     ]
   },
@@ -837,10 +893,10 @@ export const sourcingOrders = [
     batchId: 'BATCH-2025-D',
     source: 'Market',
     destination: 'WH-CENTRAL-01',
-    recordStatus: 'Draft Created',
-    status: 'Generated',
+    recordStatus: 'Rejected',
+    status: 'Rejected',
     created: '2025-10-30 16:00:00',
-    lastUpdated: '2025-10-30 16:00:00',
+    lastUpdated: '2025-10-31 10:30:00',
     createdBy: 'System',
     remarks: 'Product not available in market',
     retry: 2,
@@ -858,7 +914,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-020',
+    id: 'RECORD-2025-021',
     type: 'TO',
     docId: 'TO-2025-020',
     webOrder: 'WO-2025-011',
@@ -886,7 +942,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-020-R1',
+    id: 'RECORD-2025-021-R1',
     type: 'TO',
     docId: 'TO-2025-020-R1',
     webOrder: 'WO-2025-011',
@@ -914,7 +970,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-021',
+    id: 'RECORD-2025-022',
     type: 'TO',
     docId: 'TO-2025-021',
     webOrder: 'WO-2025-011',
@@ -942,7 +998,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-022',
+    id: 'RECORD-2025-023',
     type: 'TO',
     docId: 'DRAFT-2025-022',
     webOrder: 'WO-2025-011',
@@ -970,7 +1026,35 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-023',
+    id: 'RECORD-2025-023-VCK',
+    type: 'TO',
+    docId: 'DRAFT-2025-023',
+    webOrder: 'WO-2025-011',
+    batchId: 'BATCH-2025-E-R3',
+    source: 'S-MUM-05',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Draft Created',
+    status: 'Generated',
+    created: '2025-11-05 11:00:00',
+    lastUpdated: '2025-11-05 11:00:00',
+    createdBy: 'System',
+    remarks: 'Vicks Action 500 - attempted from S-MUM-05, marked NA internally',
+    retry: 2,
+    qtyReq: 150,
+    qtyFulfilled: 0,
+    items: [
+      {
+        lineId: 'L-023-VCK',
+        product: 'Vicks Action 500',
+        sku: 'MED-VCK-500',
+        qtyReq: 150,
+        qtyFulfilled: 0,
+        status: 'NA internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-024',
     type: 'TO',
     docId: 'TO-2025-023',
     webOrder: 'WO-2025-012',
@@ -998,7 +1082,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-024',
+    id: 'RECORD-2025-026',
     type: 'TO',
     docId: 'TO-2025-024',
     webOrder: 'WO-2025-012',
@@ -1054,7 +1138,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-025',
+    id: 'RECORD-2025-027',
     type: 'TO',
     docId: 'TO-2025-025',
     webOrder: 'WO-2025-012',
@@ -1110,7 +1194,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-026',
+    id: 'RECORD-2025-028',
     type: 'TO',
     docId: 'TO-2025-026',
     webOrder: 'WO-2025-012',
@@ -1210,7 +1294,7 @@ export const sourcingOrders = [
     ]
   },
   {
-    id: 'RECORD-2025-027',
+    id: 'RECORD-2025-029',
     type: 'TO',
     docId: 'DRAFT-2025-027',
     webOrder: 'WO-2025-013',

@@ -47,6 +47,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [showProductsModal, setShowProductsModal] = useState(false);
   const [productsToShow, setProductsToShow] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [productStatusFilter, setProductStatusFilter] = useState('All');
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [currentProductIndex, setCurrentProductIndex] = useState(null);
@@ -94,7 +95,15 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       const matchesSourceType = (sourceTypeFilter === 'All' || 
         (sourceTypeFilter === 'Store' && order.type === 'TO') ||
         (sourceTypeFilter === 'Distributor' && order.type === 'PO'));
-      return matchesSearch && matchesType && matchesStatus && matchesSourceType;
+      
+      // Market Purchase filter - check if order has products with "NA internally" or "Market Purchase Initiated" status
+      const matchesMarketPurchase = !showMarketPurchaseOnly || 
+        order.type === 'Market Purchase' ||
+        (order.items && order.items.some(item => 
+          item.status === 'NA internally' || item.status === 'Market Purchase Initiated'
+        ));
+      
+      return matchesSearch && matchesType && matchesStatus && matchesSourceType && matchesMarketPurchase;
     });
     const selectedOrders = filteredOrders.filter(order => selectedRows.includes(order.id));
     
@@ -158,6 +167,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         }
       });
     });
+    
     setProductsToShow(Array.from(productMap.values()));
   };
 
@@ -420,11 +430,11 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [selectedRows, setSelectedRows] = useState([]);
 
   // Select all handler
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedRows(filteredOrders.map(order => order.id));
-    } else {
+  const handleSelectAll = () => {
+    if (selectedRows.length === filteredOrders.length && filteredOrders.length > 0) {
       setSelectedRows([]);
+    } else {
+      setSelectedRows(filteredOrders.map(order => order.id));
     }
   };
 
@@ -517,9 +527,18 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     const matchesRetry = !showRetryOnly || order.retry > 0;
     
     // Market Purchase filter (also triggered by NA Internally button)
-    const matchesMarketPurchase = !showMarketPurchaseOnly || order.type === 'Market Purchase';
+    // Check if order is Market Purchase type OR has products with "NA internally" or "Market Purchase Initiated" status
+    const matchesMarketPurchase = !showMarketPurchaseOnly || 
+      order.type === 'Market Purchase' ||
+      (order.items && order.items.some(item => 
+        item.status === 'NA internally' || item.status === 'Market Purchase Initiated'
+      ));
     
-    return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesSourceType && matchesRetry && matchesMarketPurchase;
+    // Product Status filter - filter by specific product status
+    const matchesProductStatus = productStatusFilter === 'All' || 
+      (order.items && order.items.some(item => item.status === productStatusFilter));
+    
+    return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesSourceType && matchesRetry && matchesMarketPurchase && matchesProductStatus;
   });
 
   const handleClearFilters = () => {
@@ -531,6 +550,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     setSourceTypeFilter('All');
     setShowRetryOnly(false);
     setShowMarketPurchaseOnly(false);
+    setProductStatusFilter('All');
     setSelectedRows([]);
   };
 
@@ -740,6 +760,26 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                   Unfulfilled Products
                 </Button>
               </Col>
+              <Col xs={6} sm={6} md={3} lg={2} xl={2} className="d-flex align-items-end">
+                <Form.Select
+                  value={productStatusFilter}
+                  onChange={(e) => setProductStatusFilter(e.target.value)}
+                  size="sm"
+                >
+                  <option value="All">All Product Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Draft Created">Draft Created</option>
+                  <option value="TO Created">TO Created</option>
+                  <option value="PO Created">PO Created</option>
+                  <option value="Partially Fulfilled Internally">Partially Fulfilled Internally</option>
+                  <option value="Fully Fulfilled Internally">Fully Fulfilled Internally</option>
+                  <option value="Partially Fulfilled">Partially Fulfilled</option>
+                  <option value="Completely Fulfilled">Completely Fulfilled</option>
+                  <option value="NA internally">NA internally</option>
+                  <option value="Market Purchase Initiated">Market Purchase Initiated</option>
+                  <option value="NA in Market">NA in Market</option>
+                </Form.Select>
+              </Col>
             </Row>
             </>
           )}
@@ -751,17 +791,15 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
             <Table striped hover className="mb-0" style={{ width: '100%' }}>
               <thead className="table-light">
                 <tr>
-                  <th style={{ width: '80px' }}>
-                    <div className="d-flex align-items-center">
-                      <Form.Check
-                        type="checkbox"
-                        checked={filteredOrders.length > 0 && selectedRows.length === filteredOrders.length}
-                        onChange={handleSelectAll}
-                        aria-label="Select all rows"
-                        className="me-2"
-                      />
-                      <span className="small">Select All</span>
-                    </div>
+                  <th style={{ width: '120px' }}>
+                    <Button
+                      variant={selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "primary" : "outline-primary"}
+                      size="sm"
+                      onClick={handleSelectAll}
+                      className="w-100"
+                    >
+                      {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect All" : "Select All"}
+                    </Button>
                   </th>
                   <th style={{ width: '120px' }}>Record ID</th>
                   <th style={{ width: '80px' }}>Order Type</th>
