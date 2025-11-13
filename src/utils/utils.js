@@ -45,6 +45,31 @@ export const exportToCSV = (data, headers, fileName) => {
   }
 };
 
+export const getEnhancedProductStatus = (status, qtyReq = 0, qtyFulfilled = 0) => {
+  const hasFulfillment = qtyFulfilled && qtyFulfilled > 0;
+  const isFullyFulfilled = hasFulfillment && (qtyReq <= 0 || qtyFulfilled >= qtyReq);
+
+  switch (status) {
+    case 'NA internally':
+      if (hasFulfillment) {
+        return isFullyFulfilled ? 'Fully Fulfilled from GRN' : 'Partially Fulfilled from GRN';
+      }
+      return status;
+    case 'Market Purchase Initiated':
+      if (hasFulfillment) {
+        return isFullyFulfilled ? 'Fully Fulfilled from Market' : 'Partially Fulfilled from Market';
+      }
+      return status;
+    case 'NA in Market':
+      if (hasFulfillment) {
+        return isFullyFulfilled ? 'Fully Fulfilled from Other Sources' : 'Partially Fulfilled from Other Sources';
+      }
+      return status;
+    default:
+      return status;
+  }
+};
+
 export const getStatusBadgeClass = (status) => {
   switch (status) {
     // Web Order Level Statuses
@@ -68,6 +93,14 @@ export const getStatusBadgeClass = (status) => {
     case 'PO Created':
       return 'bg-primary';
     case 'Completely Fulfilled':
+      return 'bg-success';
+    case 'Partially Fulfilled from GRN':
+    case 'Partially Fulfilled from Market':
+    case 'Partially Fulfilled from Other Sources':
+      return 'bg-info';
+    case 'Fully Fulfilled from GRN':
+    case 'Fully Fulfilled from Market':
+    case 'Fully Fulfilled from Other Sources':
       return 'bg-success';
     case 'NA internally':
       return 'bg-danger';

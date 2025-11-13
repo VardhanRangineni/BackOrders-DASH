@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Row, Col, Card, Form, Button, Table, Modal, Dropdown } from 'react-bootstrap';
-import { formatDate, exportToCSV, getStatusBadgeClass } from '../utils/utils';
+import { formatDate, exportToCSV, getStatusBadgeClass, getEnhancedProductStatus } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 import OrderDetailsModal from '../components/OrderDetailsModal';
 
@@ -145,7 +145,12 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     const isAllSelected = productStatusFilter.includes('All');
     if (!isAllSelected && productStatusFilter.length > 0) {
       matchesMajorFilters = matchesMajorFilters && 
-        order.items?.some(item => productStatusFilter.includes(item.status));
+      order.items?.some(item => {
+        const qtyReq = item.qty || item.qtyReq || 0;
+        const qtyFulfilled = item.qtyFulfilled || 0;
+        const enhancedStatus = getEnhancedProductStatus(item.status, qtyReq, qtyFulfilled);
+        return productStatusFilter.includes(item.status) || productStatusFilter.includes(enhancedStatus);
+      });
     }
     
     return matchesSearch && matchesStatus && matchesSource && matchesDateRange && matchesMajorFilters;
@@ -170,15 +175,18 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     
     selectedOrders.forEach(order => {
       (order.items || []).forEach(item => {
-        // Apply product status filter if set (multi-select)
-        const isAllSelected = productStatusFilter.includes('All');
-        if (!isAllSelected && !productStatusFilter.includes(item.status)) {
-          return; // Skip items that don't match the selected product statuses
-        }
-        
         const qtyReq = item.qty || item.qtyReq || 0;
         const qtyFulfilled = item.qtyFulfilled || 0;
         const qtyPending = item.qtyPending || (qtyReq - qtyFulfilled);
+        const displayStatus = getEnhancedProductStatus(item.status, qtyReq, qtyFulfilled);
+
+        // Apply product status filter if set (multi-select)
+        const isAllSelected = productStatusFilter.includes('All');
+        if (!isAllSelected &&
+            !productStatusFilter.includes(item.status) &&
+            !productStatusFilter.includes(displayStatus)) {
+          return; // Skip items that don't match the selected product statuses
+        }
         
         // When "All" is selected, only show items with pending > 0
         // When specific statuses are selected, show all items matching those statuses
@@ -197,6 +205,10 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           existing.orders.push(order);
           existing.statuses.push(item.status);
           existing.statusByOrder[order.id] = item.status;
+          existing.displayStatuses = existing.displayStatuses || [];
+          existing.displayStatusByOrder = existing.displayStatusByOrder || {};
+          existing.displayStatuses.push(displayStatus);
+          existing.displayStatusByOrder[order.id] = displayStatus;
         } else {
           productMap.set(sku, {
             ...item,
@@ -206,7 +218,9 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             orderIds: [order.id],
             orders: [order],
             statuses: [item.status],
-            statusByOrder: { [order.id]: item.status }
+            statusByOrder: { [order.id]: item.status },
+            displayStatuses: [displayStatus],
+            displayStatusByOrder: { [order.id]: displayStatus }
           });
         }
       });
@@ -234,9 +248,40 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     setShowRejectModal(true);
   };
 
-  // Raise Market Purchase for NA internally items from products modal
+  // Raise Market Purchase for eligible items from products modal
   const handleRaiseMarketPurchaseProduct = (idx) => {
     const product = productsToShow[idx];
+    const newRawStatus = 'Market Purchase Initiated';
+    const aggregateQtyReq = product.qtyReq ?? product.qty ?? 0;
+    const aggregateQtyFulfilled = product.qtyFulfilled ?? 0;
+    const newDisplayStatus = getEnhancedProductStatus(newRawStatus, aggregateQtyReq, aggregateQtyFulfilled);
+
+    const statusesCount = Math.max(
+      product.statuses ? product.statuses.length : 0,
+      product.orderIds ? product.orderIds.length : 0,
+      1
+    );
+
+    const statusByOrder = { ...(product.statusByOrder || {}) };
+    const displayStatusByOrder = {};
+    (product.orderIds || []).forEach(orderId => {
+      statusByOrder[orderId] = newRawStatus;
+      displayStatusByOrder[orderId] = newDisplayStatus;
+    });
+
+    const updatedProduct = {
+      ...product,
+      status: newRawStatus,
+      statuses: Array(statusesCount).fill(newRawStatus),
+      statusByOrder,
+      displayStatuses: Array(statusesCount).fill(newDisplayStatus),
+      displayStatusByOrder
+    };
+
+    const updatedProducts = [...productsToShow];
+    updatedProducts[idx] = updatedProduct;
+    setProductsToShow(updatedProducts);
+
     // Update localStorage temp changes across all related orders
     const tempChanges = JSON.parse(localStorage.getItem('webOrderTempChanges') || '{}');
     (product.orderIds || []).forEach(orderId => {
@@ -269,7 +314,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       return order;
     }));
 
-    // Refresh the grid
+    // Refresh the grid with latest state
     buildProductsToShow();
     onShowToast(`Raised Market Purchase for ${product.sku}`);
   };
@@ -1747,7 +1792,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                       `${productStatusFilter.length} selected`}
                   </Dropdown.Toggle>
                   <Dropdown.Menu style={{ maxHeight: '300px', overflowY: 'auto', width: '100%' }}>
-                    {['All', 'Pending', 'Draft Created', 'TO Created', 'PO Created', 'Partially Fulfilled Internally', 'Fully Fulfilled Internally', 'Partially Fulfilled', 'Completely Fulfilled', 'NA internally', 'Market Purchase Initiated', 'NA in Market'].map(status => (
+                    {['All', 'Pending', 'Draft Created', 'TO Created', 'PO Created', 'Partially Fulfilled Internally', 'Fully Fulfilled Internally', 'Partially Fulfilled', 'Completely Fulfilled', 'NA internally', 'Market Purchase Initiated', 'NA in Market', 'Partially Fulfilled from GRN', 'Fully Fulfilled from GRN', 'Partially Fulfilled from Market', 'Fully Fulfilled from Market', 'Partially Fulfilled from Other Sources', 'Fully Fulfilled from Other Sources'].map(status => (
                       <Dropdown.Item
                         key={status}
                         as="div"
@@ -1998,25 +2043,39 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                         </div>
                       </td>
                       <td>
-                        {Object.entries(item.statusByOrder).map(([orderId, status]) => (
-                          <div key={orderId} className="mb-1">
-                            <span className="text-muted" style={{ fontSize: '0.7rem' }}>{orderId}:</span>
-                            <span className={`badge ${getStatusBadgeClass(status)} ms-1`} style={{ fontSize: '0.7rem' }}>
-                              {status}
-                            </span>
-                          </div>
-                        ))}
+                        {Object.entries(item.statusByOrder).map(([orderId, status]) => {
+                          const displayStatus = item.displayStatusByOrder?.[orderId] || status;
+                          return (
+                            <div key={orderId} className="mb-1">
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>{orderId}:</span>
+                              <span className={`badge ${getStatusBadgeClass(displayStatus)} ms-1`} style={{ fontSize: '0.7rem' }}>
+                                {displayStatus}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </td>
                       <td>
                         {(() => {
-                          const isPending = item.statuses.includes('Pending');
-                          const isNAInternally = item.statuses.includes('NA internally');
-                          const isMarketPurchase = item.statuses.includes('Market Purchase Initiated');
+                          const rawStatuses = item.statuses || [];
+                          const displayStatuses = item.displayStatuses || [];
+                          const isPending = rawStatuses.includes('Pending');
+                          const isMarketPurchase = rawStatuses.includes('Market Purchase Initiated');
                           
                           // Reassign only for Pending
                           const canReassign = isPending;
-                          // Reject for Pending or Market Purchase Initiated (not for NA internally)
+                          // Reject for Pending or Market Purchase Initiated
                           const canReject = isPending || isMarketPurchase;
+                          
+                          const raiseEligibleRawStatuses = ['NA internally', 'Partially Fulfilled Internally', 'Partially Fulfilled', 'Market Purchase Initiated'];
+                          const raiseEligibleDisplayStatuses = [
+                            'Partially Fulfilled from GRN',
+                            'Partially Fulfilled from Market',
+                            'Partially Fulfilled from Other Sources'
+                          ];
+                          const canRaiseMarketPurchase =
+                            rawStatuses.some(status => raiseEligibleRawStatuses.includes(status)) ||
+                            displayStatuses.some(status => raiseEligibleDisplayStatuses.includes(status));
                           
                           return (
                             <div className="d-flex gap-1">
@@ -2031,17 +2090,17 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                                   <i className="bi bi-arrow-repeat"></i>
                                 </Button>
                               )}
-                            {isNAInternally && (
-                              <Button
-                                variant="outline-warning"
-                                size="sm"
-                                className="p-1"
-                                onClick={() => handleRaiseMarketPurchaseProduct(idx)}
-                                title="Raise Market Purchase"
-                              >
-                                <i className="bi bi-bag-plus"></i>
-                              </Button>
-                            )}
+                              {canRaiseMarketPurchase && (
+                                <Button
+                                  variant="outline-warning"
+                                  size="sm"
+                                  className="p-1"
+                                  onClick={() => handleRaiseMarketPurchaseProduct(idx)}
+                                  title="Raise Market Purchase"
+                                >
+                                  <i className="bi bi-bag-plus"></i>
+                                </Button>
+                              )}
                               {canReject && (
                                 <Button
                                   variant="outline-danger"
@@ -2053,7 +2112,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                                   <i className="bi bi-x-circle"></i>
                                 </Button>
                               )}
-                          {!canReassign && !canReject && !isNAInternally && (
+                              {!canReassign && !canReject && !canRaiseMarketPurchase && (
                                 <span className="text-muted small">-</span>
                               )}
                             </div>
@@ -2087,7 +2146,10 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   qtyFulfilled: item.qtyFulfilled,
                   qtyPending: item.qtyPending,
                   orderIds: item.orderIds.join(', '),
-                  statusByOrder: Object.entries(item.statusByOrder).map(([id, status]) => `${id}: ${status}`).join(' | ')
+                  statusByOrder: Object.entries(item.statusByOrder).map(([id, status]) => {
+                    const displayStatus = item.displayStatusByOrder?.[id] || status;
+                    return `${id}: ${displayStatus}`;
+                  }).join(' | ')
                 }));
                 const headers = {
                   sku: 'SKU',

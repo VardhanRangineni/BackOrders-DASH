@@ -308,6 +308,7 @@ export const webOrders = [
     totalItems: 1,
     remarks: 'Not available in market after escalation'
   }
+  ,
 ];
 
 // Sourcing Orders (TO/PO Level Tracking Dashboard Data)
@@ -596,6 +597,168 @@ export const sourcingOrders = [
         sku: 'MED-OMP-20',
         qtyReq: 150,
         qtyFulfilled: 0,
+        status: 'NA in Market'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-GRN-070',
+    type: 'TO',
+    docId: 'GRN-2025-070',
+    webOrder: 'WO-2025-GRN-001',
+    batchId: 'BATCH-2025-GRN',
+    source: 'Central GRN',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-18 14:30:00',
+    createdBy: 'System',
+    remarks: 'First GRN receipt for warehouse fulfilment',
+    retry: 1,
+    qtyReq: 120,
+    qtyFulfilled: 70,
+    items: [
+      {
+        lineId: 'GRN-070-1',
+        product: 'Azithromycin 250mg - GRN Partial',
+        sku: 'TEST-GRN-001',
+        qtyReq: 120,
+        qtyFulfilled: 70,
+        status: 'NA internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-GRN-071',
+    type: 'TO',
+    docId: 'GRN-2025-071',
+    webOrder: 'WO-2025-GRN-001',
+    batchId: 'BATCH-2025-GRN',
+    source: 'Central GRN',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-18 17:10:00',
+    createdBy: 'System',
+    remarks: 'Follow-up GRN receipt completing fulfilment',
+    retry: 1,
+    qtyReq: 80,
+    qtyFulfilled: 80,
+    items: [
+      {
+        lineId: 'GRN-071-1',
+        product: 'Azithromycin 500mg - GRN Full',
+        sku: 'TEST-GRN-002',
+        qtyReq: 80,
+        qtyFulfilled: 80,
+        status: 'NA internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MP-150',
+    type: 'Market Purchase',
+    docId: 'MP-2025-150',
+    webOrder: 'WO-2025-MP-001',
+    batchId: 'BATCH-2025-MKT',
+    source: 'Market Vendor - MV-01',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-17 13:30:00',
+    createdBy: 'System',
+    remarks: 'First market purchase lot received',
+    retry: 1,
+    qtyReq: 90,
+    qtyFulfilled: 45,
+    items: [
+      {
+        lineId: 'MP-150-1',
+        product: 'Vitamin C Chewable 500mg - Market Partial',
+        sku: 'TEST-MKT-001',
+        qtyReq: 90,
+        qtyFulfilled: 45,
+        status: 'Market Purchase Initiated'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MP-151',
+    type: 'Market Purchase',
+    docId: 'MP-2025-151',
+    webOrder: 'WO-2025-MP-001',
+    batchId: 'BATCH-2025-MKT',
+    source: 'Market Vendor - MV-02',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-17 19:30:00',
+    createdBy: 'System',
+    remarks: 'Second market vendor fulfilled remaining demand',
+    retry: 2,
+    qtyReq: 150,
+    qtyFulfilled: 150,
+    items: [
+      {
+        lineId: 'MP-151-1',
+        product: 'Vitamin C Chewable 1000mg - Market Full',
+        sku: 'TEST-MKT-002',
+        qtyReq: 150,
+        qtyFulfilled: 150,
+        status: 'Market Purchase Initiated'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-ALT-060',
+    type: 'TO',
+    docId: 'ALT-2025-060',
+    webOrder: 'WO-2025-NAM-001',
+    batchId: 'BATCH-2025-NAM',
+    source: 'Partner Store S-HYD-15',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-16 11:00:00',
+    createdBy: 'System',
+    remarks: 'Alternate partner supplied partial quantity',
+    retry: 3,
+    qtyReq: 110,
+    qtyFulfilled: 60,
+    items: [
+      {
+        lineId: 'ALT-060-1',
+        product: 'Zinc Tablets 50mg - Alternate Partial',
+        sku: 'TEST-NAM-001',
+        qtyReq: 110,
+        qtyFulfilled: 60,
+        status: 'NA in Market'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-ALT-061',
+    type: 'TO',
+    docId: 'ALT-2025-061',
+    webOrder: 'WO-2025-NAM-001',
+    batchId: 'BATCH-2025-NAM',
+    source: 'Partner Store S-HYD-21',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-16 19:10:00',
+    createdBy: 'System',
+    remarks: 'Alternate partner completed market shortfall',
+    retry: 4,
+    qtyReq: 90,
+    qtyFulfilled: 90,
+    items: [
+      {
+        lineId: 'ALT-061-1',
+        product: 'Zinc Tablets 25mg - Alternate Full',
+        sku: 'TEST-NAM-002',
+        qtyReq: 90,
+        qtyFulfilled: 90,
         status: 'NA in Market'
       }
     ]

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Row, Col, Card, Form, Button, Table, Modal, Dropdown } from 'react-bootstrap';
-import { exportToCSV, getStatusBadgeClass } from '../utils/utils';
+import { exportToCSV, getStatusBadgeClass, getEnhancedProductStatus } from '../utils/utils';
 
 function getTrackingBadgeClass(status) {
   if (!status) return 'bg-secondary';
@@ -126,14 +126,16 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     selectedOrders.forEach(order => {
       (order.items || []).forEach(item => {
         // Apply product status filter (multi-select)
-        const isAllSelected = productStatusFilter.includes('All');
-        if (!isAllSelected && !productStatusFilter.includes(item.status)) {
-          return; // Skip items that don't match the selected product statuses
-        }
-        
         const req = item.qtyReq ?? item.qty ?? 0;
         const fulfilled = item.qtyFulfilled ?? 0;
         const pending = req - fulfilled;
+        const displayStatus = getEnhancedProductStatus(item.status, req, fulfilled);
+        const isAllSelected = productStatusFilter.includes('All');
+        if (!isAllSelected && 
+            !productStatusFilter.includes(item.status) && 
+            !productStatusFilter.includes(displayStatus)) {
+          return; // Skip items that don't match the selected product statuses
+        }
         
         // Skip this order's items if:
         // 1. It has pending quantity (partial fulfillment) AND
@@ -166,6 +168,10 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           existing.orders.push(order);
           existing.statuses.push(item.status);
           existing.statusByDraft[order.id] = item.status;
+          existing.displayStatuses = existing.displayStatuses || [];
+          existing.displayStatusByDraft = existing.displayStatusByDraft || {};
+          existing.displayStatuses.push(displayStatus);
+          existing.displayStatusByDraft[order.id] = displayStatus;
         } else {
           productMap.set(sku, {
             ...item,
@@ -175,7 +181,9 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
             draftIds: [order.id],
             orders: [order],
             statuses: [item.status],
-            statusByDraft: { [order.id]: item.status }
+            statusByDraft: { [order.id]: item.status },
+            displayStatuses: [displayStatus],
+            displayStatusByDraft: { [order.id]: displayStatus }
           });
         }
       });
@@ -234,21 +242,41 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     setShowRejectModal(true);
   };
 
-  // Raise Market Purchase for NA internally items
+  // Raise Market Purchase for eligible items
   const handleRaiseMarketPurchase = (idx) => {
-    const updated = [...productsToShow];
-    // Update local modal list
-    updated[idx] = {
-      ...updated[idx],
-      status: 'Market Purchase Initiated'
-    };
-    (updated[idx].draftIds || []).forEach(draftId => {
-      updated[idx].statusByDraft[draftId] = 'Market Purchase Initiated';
+    const prod = productsToShow[idx];
+    const newRawStatus = 'Market Purchase Initiated';
+    const aggregateQtyReq = prod.qtyReq ?? prod.qty ?? 0;
+    const aggregateQtyFulfilled = prod.qtyFulfilled ?? 0;
+    const newDisplayStatus = getEnhancedProductStatus(newRawStatus, aggregateQtyReq, aggregateQtyFulfilled);
+
+    const statusesCount = Math.max(
+      prod.statuses ? prod.statuses.length : 0,
+      prod.draftIds ? prod.draftIds.length : 0,
+      1
+    );
+
+    const statusByDraft = { ...(prod.statusByDraft || {}) };
+    const displayStatusByDraft = {};
+    (prod.draftIds || []).forEach(draftId => {
+      statusByDraft[draftId] = newRawStatus;
+      displayStatusByDraft[draftId] = newDisplayStatus;
     });
+
+    const updatedProduct = {
+      ...prod,
+      status: newRawStatus,
+      statuses: Array(statusesCount).fill(newRawStatus),
+      statusByDraft,
+      displayStatuses: Array(statusesCount).fill(newDisplayStatus),
+      displayStatusByDraft
+    };
+
+    const updated = [...productsToShow];
+    updated[idx] = updatedProduct;
     setProductsToShow(updated);
 
     // Persist to sourcingOrders
-    const prod = productsToShow[idx];
     setSourcingOrders(prevOrders => prevOrders.map(order => {
       if (!order.items) return order;
       const updatedItems = order.items.map(item => {
@@ -315,7 +343,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         // Update statusByDraft for all drafts
         (updatedProductsToShow[idx].draftIds || []).forEach(draftId => {
           updatedProductsToShow[idx].statusByDraft[draftId] = 'Pending';
+          if (updatedProductsToShow[idx].displayStatusByDraft) {
+            updatedProductsToShow[idx].displayStatusByDraft[draftId] = 'Pending';
+          }
         });
+        updatedProductsToShow[idx].statuses = Object.values(updatedProductsToShow[idx].statusByDraft || {});
+        updatedProductsToShow[idx].displayStatuses = Object.values(updatedProductsToShow[idx].displayStatusByDraft || {});
       });
     } else {
       updatedProductsToShow[currentProductIndex] = {
@@ -327,7 +360,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       // Update statusByDraft for all drafts
       (updatedProductsToShow[currentProductIndex].draftIds || []).forEach(draftId => {
         updatedProductsToShow[currentProductIndex].statusByDraft[draftId] = 'Pending';
+        if (updatedProductsToShow[currentProductIndex].displayStatusByDraft) {
+          updatedProductsToShow[currentProductIndex].displayStatusByDraft[draftId] = 'Pending';
+        }
       });
+      updatedProductsToShow[currentProductIndex].statuses = Object.values(updatedProductsToShow[currentProductIndex].statusByDraft || {});
+      updatedProductsToShow[currentProductIndex].displayStatuses = Object.values(updatedProductsToShow[currentProductIndex].displayStatusByDraft || {});
     }
     setProductsToShow(updatedProductsToShow);
 
@@ -396,7 +434,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         // Update statusByDraft for all drafts
         (updatedProductsToShow[idx].draftIds || []).forEach(draftId => {
           updatedProductsToShow[idx].statusByDraft[draftId] = 'Rejected';
+          if (updatedProductsToShow[idx].displayStatusByDraft) {
+            updatedProductsToShow[idx].displayStatusByDraft[draftId] = 'Rejected';
+          }
         });
+        updatedProductsToShow[idx].statuses = Object.values(updatedProductsToShow[idx].statusByDraft || {});
+        updatedProductsToShow[idx].displayStatuses = Object.values(updatedProductsToShow[idx].displayStatusByDraft || {});
       });
     } else {
       updatedProductsToShow[currentProductIndex] = {
@@ -409,7 +452,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       // Update statusByDraft for all drafts
       (updatedProductsToShow[currentProductIndex].draftIds || []).forEach(draftId => {
         updatedProductsToShow[currentProductIndex].statusByDraft[draftId] = 'Rejected';
+        if (updatedProductsToShow[currentProductIndex].displayStatusByDraft) {
+          updatedProductsToShow[currentProductIndex].displayStatusByDraft[draftId] = 'Rejected';
+        }
       });
+      updatedProductsToShow[currentProductIndex].statuses = Object.values(updatedProductsToShow[currentProductIndex].statusByDraft || {});
+      updatedProductsToShow[currentProductIndex].displayStatuses = Object.values(updatedProductsToShow[currentProductIndex].displayStatusByDraft || {});
     }
     setProductsToShow(updatedProductsToShow);
     
@@ -584,7 +632,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     // Product Status filter - filter by specific product status (multi-select)
     const isAllSelected = productStatusFilter.includes('All');
     const matchesProductStatus = isAllSelected || 
-      (order.items && order.items.some(item => productStatusFilter.includes(item.status)));
+      (order.items && order.items.some(item => {
+        const qtyReq = item.qtyReq ?? item.qty ?? 0;
+        const qtyFulfilled = item.qtyFulfilled ?? 0;
+        const enhancedStatus = getEnhancedProductStatus(item.status, qtyReq, qtyFulfilled);
+        return productStatusFilter.includes(item.status) || productStatusFilter.includes(enhancedStatus);
+      }));
     
     return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesSourceType && matchesRetry && matchesMarketPurchase && matchesProductStatus;
   });
@@ -858,7 +911,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                       `${productStatusFilter.length} selected`}
                   </Dropdown.Toggle>
                   <Dropdown.Menu style={{ maxHeight: '300px', overflowY: 'auto', width: '100%' }}>
-                    {['All', 'Pending', 'Draft Created', 'TO Created', 'PO Created', 'Partially Fulfilled Internally', 'Fully Fulfilled Internally', 'Partially Fulfilled', 'Completely Fulfilled', 'NA internally', 'Market Purchase Initiated', 'NA in Market'].map(status => (
+                    {['All', 'Pending', 'Draft Created', 'TO Created', 'PO Created', 'Partially Fulfilled Internally', 'Fully Fulfilled Internally', 'Partially Fulfilled', 'Completely Fulfilled', 'NA internally', 'Market Purchase Initiated', 'NA in Market', 'Partially Fulfilled from GRN', 'Fully Fulfilled from GRN', 'Partially Fulfilled from Market', 'Fully Fulfilled from Market', 'Partially Fulfilled from Other Sources', 'Fully Fulfilled from Other Sources'].map(status => (
                       <Dropdown.Item
                         key={status}
                         as="div"
@@ -1066,8 +1119,13 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                         const pending = Math.max(0, req - fulfilled);
                         
                         // Create status string showing draft ID: status
-                        const statusByDraft = (item.draftIds || []).map((draftId, idx) => {
-                          const status = item.statusByDraft?.[draftId] || item.statuses?.[idx] || 'Unknown';
+                    const statusByDraft = (item.draftIds || []).map((draftId, idx) => {
+                      const status =
+                        item.displayStatusByDraft?.[draftId] ||
+                        item.statusByDraft?.[draftId] ||
+                        item.displayStatuses?.[idx] ||
+                        item.statuses?.[idx] ||
+                        'Unknown';
                           return `${draftId}: ${status}`;
                         }).join(' | ');
                         
@@ -1168,7 +1226,12 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                         <td>
                           <div className="d-flex flex-wrap gap-1">
                             {(item.draftIds || []).map((draftId, dIdx) => {
-                              const status = item.statusByDraft?.[draftId] || item.statuses?.[dIdx] || 'Unknown';
+                              const status =
+                                item.displayStatusByDraft?.[draftId] ||
+                                item.statusByDraft?.[draftId] ||
+                                item.displayStatuses?.[dIdx] ||
+                                item.statuses?.[dIdx] ||
+                                'Unknown';
                               return (
                                 <div key={dIdx} className="d-flex align-items-center gap-1" style={{ fontSize: '0.75rem' }}>
                                   <span className="text-muted" style={{ fontSize: '0.7rem' }}>{draftId.split('-')[2]}:</span>
@@ -1182,14 +1245,25 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                         </td>
                         <td>
                           {(() => {
-                            const isPending = (item.statuses || []).includes('Pending');
-                            const isNAInternally = (item.statuses || []).includes('NA internally');
-                            const isMarketPurchase = (item.statuses || []).includes('Market Purchase Initiated');
+                            const rawStatuses = item.statuses || [];
+                            const displayStatuses = item.displayStatuses || [];
+                            const isPending = rawStatuses.includes('Pending');
+                            const isMarketPurchase = rawStatuses.includes('Market Purchase Initiated');
                             
                             // Reassign only for Pending
                             const canReassign = isPending;
                             // Reject only for Pending or Market Purchase Initiated
                             const canReject = isPending || isMarketPurchase;
+                            
+                            const raiseEligibleRawStatuses = ['NA internally', 'Partially Fulfilled Internally', 'Partially Fulfilled', 'Market Purchase Initiated'];
+                            const raiseEligibleDisplayStatuses = [
+                              'Partially Fulfilled from GRN',
+                              'Partially Fulfilled from Market',
+                              'Partially Fulfilled from Other Sources'
+                            ];
+                            const canRaiseMarketPurchase =
+                              rawStatuses.some(status => raiseEligibleRawStatuses.includes(status)) ||
+                              displayStatuses.some(status => raiseEligibleDisplayStatuses.includes(status));
                             
                             return (
                               <div className="d-flex gap-1">
@@ -1204,7 +1278,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                                     <i className="bi bi-arrow-repeat"></i>
                                   </Button>
                                 )}
-                                {isNAInternally && (
+                                {canRaiseMarketPurchase && (
                                   <Button
                                     variant="outline-warning"
                                     size="sm"
@@ -1226,7 +1300,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                                     <i className="bi bi-x-circle"></i>
                                   </Button>
                                 )}
-                                {!canReassign && !canReject && !isNAInternally && (
+                                {!canReassign && !canReject && !canRaiseMarketPurchase && (
                                   <span className="text-muted small">-</span>
                                 )}
                               </div>
