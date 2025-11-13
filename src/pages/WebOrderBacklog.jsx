@@ -1620,7 +1620,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           <div
             className="table-responsive bo-scroll-x"
             ref={tableRef}
-            style={{ overflow: 'auto', maxWidth: '1350px', WebkitOverflowScrolling: 'touch' }}
+            style={{ overflow: 'auto', width: '85vw', maxWidth: '85vw', WebkitOverflowScrolling: 'touch' }}
           >
             <Table striped hover className="mb-0" size="sm" style={{ minWidth: '900px' }}>
               <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#f8f9fa' }}>
