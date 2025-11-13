@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Row, Col, Card, Form, Button, Table, Modal } from 'react-bootstrap';
+import { Row, Col, Card, Form, Button, Table, Modal, Dropdown } from 'react-bootstrap';
 import { formatDate, exportToCSV, getStatusBadgeClass } from '../utils/utils';
 import ActionDropdown from '../components/ActionDropdown';
 import OrderDetailsModal from '../components/OrderDetailsModal';
@@ -20,10 +20,37 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   const [showProductsModal, setShowProductsModal] = useState(false);
   const [productsToShow, setProductsToShow] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [productStatusFilter, setProductStatusFilter] = useState('All');
+  const [productStatusFilter, setProductStatusFilter] = useState(['All']);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [currentProductIndex, setCurrentProductIndex] = useState(null);
+  const [reassignData, setReassignData] = useState({ source: '', reason: '' });
+  const [rejectData, setRejectData] = useState({ reason: '', type: 'unavailable' });
   
   const highlightedRowRef = useRef(null);
   const tableRef = useRef(null);
+
+  // Load temporary changes from localStorage on mount
+  useEffect(() => {
+    const tempChanges = localStorage.getItem('webOrderTempChanges');
+    if (tempChanges) {
+      const changes = JSON.parse(tempChanges);
+      setWebOrders(prevOrders => prevOrders.map(order => {
+        const orderChanges = changes[order.id];
+        if (orderChanges && order.items) {
+          return {
+            ...order,
+            items: order.items.map(item => {
+              const itemChange = orderChanges[item.sku];
+              return itemChange ? { ...item, ...itemChange } : item;
+            })
+          };
+        }
+        return order;
+      }));
+    }
+  }, []);
 
   // Apply initial filters when component mounts or filters change
   useEffect(() => {
@@ -115,10 +142,11 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         order.items?.some(item => (item.retries || 0) > 0);
     }
     
-    // Product Status filter - filter by specific product status
-    if (productStatusFilter !== 'All') {
+    // Product Status filter - filter by specific product status (multi-select)
+    const isAllSelected = productStatusFilter.includes('All');
+    if (!isAllSelected && productStatusFilter.length > 0) {
       matchesMajorFilters = matchesMajorFilters && 
-        order.items?.some(item => item.status === productStatusFilter);
+        order.items?.some(item => productStatusFilter.includes(item.status));
     }
     
     return matchesSearch && matchesStatus && matchesSource && matchesDateRange && matchesMajorFilters;
@@ -132,7 +160,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     setEndDateFilter('');
     setNaInternallyFilter(false);
     setRetriedOrdersFilter(false);
-    setProductStatusFilter('All');
+    setProductStatusFilter(['All']);
     setSelectedRows([]);
   };
 
@@ -143,38 +171,44 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     
     selectedOrders.forEach(order => {
       (order.items || []).forEach(item => {
-        // Apply product status filter
-        if (productStatusFilter !== 'All' && item.status !== productStatusFilter) {
-          return; // Skip items that don't match the product status filter
+        // Apply product status filter if set (multi-select)
+        const isAllSelected = productStatusFilter.includes('All');
+        if (!isAllSelected && !productStatusFilter.includes(item.status)) {
+          return; // Skip items that don't match the selected product statuses
         }
         
         const qtyReq = item.qty || item.qtyReq || 0;
         const qtyFulfilled = item.qtyFulfilled || 0;
         const qtyPending = item.qtyPending || (qtyReq - qtyFulfilled);
         
-        if (qtyPending > 0) {
-          const sku = item.sku;
-          if (productMap.has(sku)) {
-            const existing = productMap.get(sku);
-            existing.qtyReq += qtyReq;
-            existing.qtyFulfilled += qtyFulfilled;
-            existing.qtyPending += qtyPending;
-            existing.orderIds.push(order.id);
-            existing.orders.push(order);
-            existing.statuses.push(item.status);
-            existing.statusByOrder[order.id] = item.status;
-          } else {
-            productMap.set(sku, {
-              ...item,
-              qtyReq,
-              qtyFulfilled,
-              qtyPending,
-              orderIds: [order.id],
-              orders: [order],
-              statuses: [item.status],
-              statusByOrder: { [order.id]: item.status }
-            });
-          }
+        // When "All" is selected, only show items with pending > 0
+        // When specific statuses are selected, show all items matching those statuses
+        if (isAllSelected && qtyPending <= 0) {
+          return; // Skip fulfilled items when showing "All"
+        }
+        
+        // If we reach here, the item should be shown
+        const sku = item.sku;
+        if (productMap.has(sku)) {
+          const existing = productMap.get(sku);
+          existing.qtyReq += qtyReq;
+          existing.qtyFulfilled += qtyFulfilled;
+          existing.qtyPending += qtyPending;
+          existing.orderIds.push(order.id);
+          existing.orders.push(order);
+          existing.statuses.push(item.status);
+          existing.statusByOrder[order.id] = item.status;
+        } else {
+          productMap.set(sku, {
+            ...item,
+            qtyReq,
+            qtyFulfilled,
+            qtyPending,
+            orderIds: [order.id],
+            orders: [order],
+            statuses: [item.status],
+            statusByOrder: { [order.id]: item.status }
+          });
         }
       });
     });
@@ -188,7 +222,112 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       return;
     }
     buildProductsToShow();
+    setSelectedProducts([]);
     setShowProductsModal(true);
+  };
+
+  const handleReassignProduct = (idx) => {
+    setCurrentProductIndex(idx);
+    setShowReassignModal(true);
+  };
+
+  const handleRejectProduct = (idx) => {
+    setCurrentProductIndex(idx);
+    setShowRejectModal(true);
+  };
+
+  const confirmReassign = () => {
+    if (!reassignData.reason) {
+      onShowToast('Please provide a reason for reassignment');
+      return;
+    }
+
+    const product = productsToShow[currentProductIndex];
+    const tempChanges = JSON.parse(localStorage.getItem('webOrderTempChanges') || '{}');
+
+    // Update all affected orders
+    product.orderIds.forEach(orderId => {
+      if (!tempChanges[orderId]) tempChanges[orderId] = {};
+      tempChanges[orderId][product.sku] = {
+        status: 'Pending',
+        reassignedTo: reassignData.source || 'Auto-Select',
+        reassignReason: reassignData.reason
+      };
+    });
+
+    localStorage.setItem('webOrderTempChanges', JSON.stringify(tempChanges));
+
+    // Update in-memory state
+    setWebOrders(prevOrders => prevOrders.map(order => {
+      if (product.orderIds.includes(order.id) && order.items) {
+        return {
+          ...order,
+          items: order.items.map(item =>
+            item.sku === product.sku
+              ? {
+                  ...item,
+                  status: 'Pending',
+                  reassignedTo: reassignData.source || 'Auto-Select',
+                  reassignReason: reassignData.reason
+                }
+              : item
+          )
+        };
+      }
+      return order;
+    }));
+
+    onShowToast(`Reassigned product ${product.sku} to ${reassignData.source || 'Auto-Select'}`);
+    setShowReassignModal(false);
+    setReassignData({ source: '', reason: '' });
+    buildProductsToShow();
+  };
+
+  const confirmReject = () => {
+    if (!rejectData.reason) {
+      onShowToast('Please provide a reason for rejection');
+      return;
+    }
+
+    const product = productsToShow[currentProductIndex];
+    const tempChanges = JSON.parse(localStorage.getItem('webOrderTempChanges') || '{}');
+
+    // Update all affected orders
+    product.orderIds.forEach(orderId => {
+      if (!tempChanges[orderId]) tempChanges[orderId] = {};
+      tempChanges[orderId][product.sku] = {
+        status: 'Rejected',
+        rejectReason: rejectData.reason,
+        rejectType: rejectData.type
+      };
+    });
+
+    localStorage.setItem('webOrderTempChanges', JSON.stringify(tempChanges));
+
+    // Update in-memory state
+    setWebOrders(prevOrders => prevOrders.map(order => {
+      if (product.orderIds.includes(order.id) && order.items) {
+        return {
+          ...order,
+          items: order.items.map(item =>
+            item.sku === product.sku
+              ? {
+                  ...item,
+                  status: 'Rejected',
+                  rejectReason: rejectData.reason,
+                  rejectType: rejectData.type
+                }
+              : item
+          )
+        };
+      }
+      return order;
+    }));
+
+    onShowToast(`Rejected product ${product.sku}`);
+    setShowRejectModal(false);
+    setRejectData({ reason: '', type: 'unavailable' });
+    buildProductsToShow();
   };
 
   const handleSelectAllOrders = () => {
@@ -1546,57 +1685,59 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               </Col>
             </Row>
             <Row className="g-2 mb-3 mt-2">
-              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
-                <Button 
-                  variant={naInternallyFilter ? "warning" : "outline-warning"}
-                  onClick={() => setNaInternallyFilter(!naInternallyFilter)}
-                  className="w-100 mt-4"
-                  size="sm"
-                >
-                  {naInternallyFilter ? "✓ " : ""}NA Internally
-                </Button>
-              </Col>
-              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
-                <Button 
-                  variant={retriedOrdersFilter ? "info" : "outline-info"}
-                  onClick={() => setRetriedOrdersFilter(!retriedOrdersFilter)}
-                  className="w-100 mt-4"
-                  size="sm"
-                >
-                  {retriedOrdersFilter ? "✓ " : ""}Retried Orders
-                </Button>
-              </Col>
               <Col xs={12} sm={4} md={3} lg={2} xl={2}>
                 <Button 
-                  variant="outline-danger"
+                  variant="primary"
                   onClick={handleShowProducts}
                   className="w-100 mt-4"
                   size="sm"
                   disabled={selectedRows.length === 0}
                 >
-                  Unfulfilled Products
+                  View Products
                 </Button>
               </Col>
-              <Col xs={12} sm={8} md={6} lg={4} xl={3}>
-              <Form.Label className="small text-muted mb-1">Product Status</Form.Label>
-                <Form.Select
-                  value={productStatusFilter}
-                  onChange={(e) => setProductStatusFilter(e.target.value)}
-                  size="sm"
-                >
-                  <option value="All">All Product Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Draft Created">Draft Created</option>
-                  <option value="TO Created">TO Created</option>
-                  <option value="PO Created">PO Created</option>
-                  <option value="Partially Fulfilled Internally">Partially Fulfilled Internally</option>
-                  <option value="Fully Fulfilled Internally">Fully Fulfilled Internally</option>
-                  <option value="Partially Fulfilled">Partially Fulfilled</option>
-                  <option value="Completely Fulfilled">Completely Fulfilled</option>
-                  <option value="NA internally">NA internally</option>
-                  <option value="Market Purchase Initiated">Market Purchase Initiated</option>
-                  <option value="NA in Market">NA in Market</option>
-                </Form.Select>
+              <Col xs={12} sm={8} md={6} lg={4} xl={4}>
+                <Form.Label className="small text-muted mb-1">Product Status</Form.Label>
+                <Dropdown autoClose="outside">
+                  <Dropdown.Toggle variant="outline-secondary" size="sm" className="w-100 text-start" style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}>
+                    {productStatusFilter.includes('All') ? 'All Product Status' : 
+                      productStatusFilter.length === 0 ? 'Select Status' :
+                      productStatusFilter.length === 1 ? productStatusFilter[0] :
+                      `${productStatusFilter.length} selected`}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu style={{ maxHeight: '300px', overflowY: 'auto', width: '100%' }}>
+                    {['All', 'Pending', 'Draft Created', 'TO Created', 'PO Created', 'Partially Fulfilled Internally', 'Fully Fulfilled Internally', 'Partially Fulfilled', 'Completely Fulfilled', 'NA internally', 'Market Purchase Initiated', 'NA in Market'].map(status => (
+                      <Dropdown.Item
+                        key={status}
+                        as="div"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (status === 'All') {
+                            setProductStatusFilter(['All']);
+                          } else {
+                            let updated = productStatusFilter.filter(s => s !== 'All');
+                            if (updated.includes(status)) {
+                              updated = updated.filter(s => s !== status);
+                            } else {
+                              updated = [...updated, status];
+                            }
+                            setProductStatusFilter(updated.length === 0 ? ['All'] : updated);
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <Form.Check
+                          type="checkbox"
+                          label={status === 'All' ? 'All Product Status' : status}
+                          checked={productStatusFilter.includes(status)}
+                          onChange={() => {}}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown>
               </Col>
             </Row>
             </>
@@ -1788,12 +1929,13 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   <th style={{ width: '100px', minWidth: '100px' }}>Qty Pending</th>
                   <th style={{ minWidth: '150px' }}>Order IDs</th>
                   <th style={{ minWidth: '200px' }}>Status by Order</th>
+                  <th style={{ minWidth: '120px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {productsToShow.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center text-muted py-4">
+                    <td colSpan="8" className="text-center text-muted py-4">
                       No unfulfilled products found in selected orders
                     </td>
                   </tr>
@@ -1824,6 +1966,48 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                           </div>
                         ))}
                       </td>
+                      <td>
+                        {(() => {
+                          const isPending = item.statuses.includes('Pending');
+                          const isNAInternally = item.statuses.includes('NA internally');
+                          const isMarketPurchase = item.statuses.includes('Market Purchase Initiated');
+                          
+                          // Show Reassign only for Pending or NA internally
+                          const canReassign = isPending || isNAInternally;
+                          // Show Reject for Pending, NA internally, or Market Purchase Initiated
+                          const canReject = isPending || isNAInternally || isMarketPurchase;
+                          
+                          return (
+                            <div className="d-flex gap-1">
+                              {canReassign && (
+                                <Button
+                                  variant="outline-primary"
+                                  size="sm"
+                                  className="p-1"
+                                  onClick={() => handleReassignProduct(idx)}
+                                  title="Reassign"
+                                >
+                                  <i className="bi bi-arrow-repeat"></i>
+                                </Button>
+                              )}
+                              {canReject && (
+                                <Button
+                                  variant="outline-danger"
+                                  size="sm"
+                                  className="p-1"
+                                  onClick={() => handleRejectProduct(idx)}
+                                  title="Reject"
+                                >
+                                  <i className="bi bi-x-circle"></i>
+                                </Button>
+                              )}
+                              {!canReassign && !canReject && (
+                                <span className="text-muted small">-</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -1834,8 +2018,9 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           <div className="mt-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
             <div className="text-muted">
               <small>
-                <strong>Total Products:</strong> {productsToShow.length} | 
-                <strong className="ms-2">Total Pending Qty:</strong> {productsToShow.reduce((sum, p) => sum + p.qtyPending, 0)}
+                <strong>Showing:</strong> {productsToShow.length} products | 
+                <strong className="ms-2">Total Qty Req:</strong> {productsToShow.reduce((sum, p) => sum + (p.qtyReq || 0), 0)} | 
+                <strong className="ms-2">Total Qty Pending:</strong> {productsToShow.reduce((sum, p) => sum + p.qtyPending, 0)}
               </small>
             </div>
             <Button
@@ -1873,6 +2058,110 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowProductsModal(false)} className="w-100 w-sm-auto">
             Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Reassign Modal */}
+      <Modal show={showReassignModal} onHide={() => setShowReassignModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Reassign Product</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-3">
+            <p className="text-muted">
+              Reassign product {productsToShow[currentProductIndex]?.sku || ''} to alternate source
+            </p>
+            <div className="alert alert-info mb-3">
+              <strong>ℹ Info:</strong> This will redirect the product to alternate sourcing channels.
+            </div>
+            
+            <div className="mb-3">
+              <label className="form-label fw-medium">Reassign To</label>
+              <Form.Select 
+                value={reassignData.source}
+                onChange={(e) => setReassignData({...reassignData, source: e.target.value})}
+                style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
+              >
+                <option value="">Auto-Select</option>
+                <option value="DIST-MP-001">DIST-MP-001 - MedPlus Distributor 1</option>
+                <option value="DIST-MP-002">DIST-MP-002 - MedPlus Distributor 2</option>
+                <option value="DIST-MP-003">DIST-MP-003 - MedPlus Distributor 3</option>
+                <option value="VEND-MP-001">VEND-MP-001 - MedPlus Vendor 1</option>
+                <option value="VEND-MP-002">VEND-MP-002 - MedPlus Vendor 2</option>
+                <option value="Market">Market Purchase</option>
+              </Form.Select>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-medium">Reason for Reassignment</label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Please provide detailed reason..."
+                value={reassignData.reason}
+                onChange={(e) => setReassignData({...reassignData, reason: e.target.value})}
+              />
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowReassignModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={confirmReassign}>
+            Confirm Reassignment
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Reject Modal */}
+      <Modal show={showRejectModal} onHide={() => setShowRejectModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Reject Product</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-3">
+            <p className="text-muted">
+              Reject product {productsToShow[currentProductIndex]?.sku || ''}
+            </p>
+            <div className="alert alert-warning mb-3">
+              <strong>⚠ Warning:</strong> This action will mark the product as rejected.
+            </div>
+            
+            <div className="mb-3">
+              <label className="form-label fw-medium">Rejection Type</label>
+              <Form.Select 
+                value={rejectData.type}
+                onChange={(e) => setRejectData({...rejectData, type: e.target.value})}
+                style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}
+              >
+                <option value="unavailable">Product Unavailable</option>
+                <option value="price">Price Issue</option>
+                <option value="quality">Quality Concern</option>
+                <option value="stock">Out of Stock</option>
+                <option value="other">Other</option>
+              </Form.Select>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-medium">Reason for Rejection</label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Please provide detailed reason..."
+                value={rejectData.reason}
+                onChange={(e) => setRejectData({...rejectData, reason: e.target.value})}
+              />
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRejectModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={confirmReject}>
+            Confirm Rejection
           </Button>
         </Modal.Footer>
       </Modal>

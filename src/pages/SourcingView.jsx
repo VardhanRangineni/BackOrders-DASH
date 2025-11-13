@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Row, Col, Card, Form, Button, Table, Modal } from 'react-bootstrap';
+import { Row, Col, Card, Form, Button, Table, Modal, Dropdown } from 'react-bootstrap';
 import { exportToCSV, getStatusBadgeClass } from '../utils/utils';
 
 function getTrackingBadgeClass(status) {
@@ -47,7 +47,6 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [showProductsModal, setShowProductsModal] = useState(false);
   const [productsToShow, setProductsToShow] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
-  const [productStatusFilter, setProductStatusFilter] = useState('All');
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [currentProductIndex, setCurrentProductIndex] = useState(null);
@@ -126,9 +125,10 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     const productMap = new Map();
     selectedOrders.forEach(order => {
       (order.items || []).forEach(item => {
-        // Apply product status filter
-        if (productStatusFilter !== 'All' && item.status !== productStatusFilter) {
-          return; // Skip items that don't match the product status filter
+        // Apply product status filter (multi-select)
+        const isAllSelected = productStatusFilter.includes('All');
+        if (!isAllSelected && !productStatusFilter.includes(item.status)) {
+          return; // Skip items that don't match the selected product statuses
         }
         
         const req = item.qtyReq ?? item.qty ?? 0;
@@ -146,29 +146,34 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           return;
         }
         
-        if (pending > 0 && item.status !== 'Fulfilled') {
-          const sku = item.sku;
-          if (productMap.has(sku)) {
-            const existing = productMap.get(sku);
-            existing.qtyReq += req;
-            existing.qtyFulfilled += fulfilled;
-            existing.qtyPending += pending;
-            existing.draftIds.push(order.id);
-            existing.orders.push(order);
-            existing.statuses.push(item.status);
-            existing.statusByDraft[order.id] = item.status;
-          } else {
-            productMap.set(sku, {
-              ...item,
-              qtyReq: req,
-              qtyFulfilled: fulfilled,
-              qtyPending: pending,
-              draftIds: [order.id],
-              orders: [order],
-              statuses: [item.status],
-              statusByDraft: { [order.id]: item.status }
-            });
-          }
+        // When "All" is selected, only show items with pending > 0
+        // When specific statuses are selected, show all items matching those statuses
+        if (isAllSelected && (pending <= 0 || item.status === 'Fulfilled')) {
+          return; // Skip fulfilled items when showing "All"
+        }
+        
+        // If we reach here, the item should be shown
+        const sku = item.sku;
+        if (productMap.has(sku)) {
+          const existing = productMap.get(sku);
+          existing.qtyReq += req;
+          existing.qtyFulfilled += fulfilled;
+          existing.qtyPending += pending;
+          existing.draftIds.push(order.id);
+          existing.orders.push(order);
+          existing.statuses.push(item.status);
+          existing.statusByDraft[order.id] = item.status;
+        } else {
+          productMap.set(sku, {
+            ...item,
+            qtyReq: req,
+            qtyFulfilled: fulfilled,
+            qtyPending: pending,
+            draftIds: [order.id],
+            orders: [order],
+            statuses: [item.status],
+            statusByDraft: { [order.id]: item.status }
+          });
         }
       });
     });
@@ -431,6 +436,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   const [showRetryOnly, setShowRetryOnly] = useState(false);
   const [showMarketPurchaseOnly, setShowMarketPurchaseOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [productStatusFilter, setProductStatusFilter] = useState(['All']);
   const tableRef = useRef(null);
   const [selectedRows, setSelectedRows] = useState([]);
 
@@ -539,9 +545,10 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         item.status === 'NA internally' || item.status === 'Market Purchase Initiated'
       ));
     
-    // Product Status filter - filter by specific product status
-    const matchesProductStatus = productStatusFilter === 'All' || 
-      (order.items && order.items.some(item => item.status === productStatusFilter));
+    // Product Status filter - filter by specific product status (multi-select)
+    const isAllSelected = productStatusFilter.includes('All');
+    const matchesProductStatus = isAllSelected || 
+      (order.items && order.items.some(item => productStatusFilter.includes(item.status)));
     
     return matchesSearch && matchesType && matchesStatus && matchesDateRange && matchesSourceType && matchesRetry && matchesMarketPurchase && matchesProductStatus;
   });
@@ -555,7 +562,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     setSourceTypeFilter('All');
     setShowRetryOnly(false);
     setShowMarketPurchaseOnly(false);
-    setProductStatusFilter('All');
+    setProductStatusFilter(['All']);
     setSelectedRows([]);
   };
 
@@ -794,57 +801,59 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
             </Row>
 
             <Row className="g-2 mb-3 mt-2">
-              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
-                <Button 
-                  variant={showMarketPurchaseOnly ? "warning" : "outline-warning"} 
-                  onClick={() => setShowMarketPurchaseOnly(!showMarketPurchaseOnly)}
-                  className="w-100 mt-4"
-                  size="sm"
-                >
-                  {showMarketPurchaseOnly ? "✓ " : ""}NA Internally
-                </Button>
-              </Col>
-              <Col xs={6} sm={4} md={3} lg={2} xl={2}>
-                <Button 
-                  variant={showRetryOnly ? "info" : "outline-info"} 
-                  onClick={() => setShowRetryOnly(!showRetryOnly)}
-                  className="w-100 mt-4"
-                  size="sm"
-                >
-                  {showRetryOnly ? "✓ " : ""}Retried Orders
-                </Button>
-              </Col>
               <Col xs={12} sm={4} md={3} lg={2} xl={2}>
                 <Button 
-                  variant="outline-danger"
+                  variant="primary"
                   onClick={handleShowProducts}
                   className="w-100 mt-4"
                   size="sm"
                   disabled={selectedRows.length === 0}
                 >
-                  Unfulfilled Products
+                  View Products
                 </Button>
               </Col>
-              <Col xs={12} sm={8} md={6} lg={4} xl={3}>
-              <Form.Label className="small text-muted mb-1">Product Status</Form.Label>
-                <Form.Select
-                  value={productStatusFilter}
-                  onChange={(e) => setProductStatusFilter(e.target.value)}
-                  size="sm"
-                >
-                  <option value="All">All Product Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Draft Created">Draft Created</option>
-                  <option value="TO Created">TO Created</option>
-                  <option value="PO Created">PO Created</option>
-                  <option value="Partially Fulfilled Internally">Partially Fulfilled Internally</option>
-                  <option value="Fully Fulfilled Internally">Fully Fulfilled Internally</option>
-                  <option value="Partially Fulfilled">Partially Fulfilled</option>
-                  <option value="Completely Fulfilled">Completely Fulfilled</option>
-                  <option value="NA internally">NA internally</option>
-                  <option value="Market Purchase Initiated">Market Purchase Initiated</option>
-                  <option value="NA in Market">NA in Market</option>
-                </Form.Select>
+              <Col xs={12} sm={8} md={6} lg={4} xl={4}>
+                <Form.Label className="small text-muted mb-1">Product Status</Form.Label>
+                <Dropdown autoClose="outside">
+                  <Dropdown.Toggle variant="outline-secondary" size="sm" className="w-100 text-start" style={{ border: '2px solid #007bff', boxShadow: '0 0 2px #007bff' }}>
+                    {productStatusFilter.includes('All') ? 'All Product Status' : 
+                      productStatusFilter.length === 0 ? 'Select Status' :
+                      productStatusFilter.length === 1 ? productStatusFilter[0] :
+                      `${productStatusFilter.length} selected`}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu style={{ maxHeight: '300px', overflowY: 'auto', width: '100%' }}>
+                    {['All', 'Pending', 'Draft Created', 'TO Created', 'PO Created', 'Partially Fulfilled Internally', 'Fully Fulfilled Internally', 'Partially Fulfilled', 'Completely Fulfilled', 'NA internally', 'Market Purchase Initiated', 'NA in Market'].map(status => (
+                      <Dropdown.Item
+                        key={status}
+                        as="div"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (status === 'All') {
+                            setProductStatusFilter(['All']);
+                          } else {
+                            let updated = productStatusFilter.filter(s => s !== 'All');
+                            if (updated.includes(status)) {
+                              updated = updated.filter(s => s !== status);
+                            } else {
+                              updated = [...updated, status];
+                            }
+                            setProductStatusFilter(updated.length === 0 ? ['All'] : updated);
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <Form.Check
+                          type="checkbox"
+                          label={status === 'All' ? 'All Product Status' : status}
+                          checked={productStatusFilter.includes(status)}
+                          onChange={() => {}}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown>
               </Col>
             </Row>
             </>
@@ -1004,6 +1013,13 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                       Reject Selected ({selectedProducts.length})
                     </Button>
                   </div>
+                  <div className="text-muted me-2">
+                    <small>
+                      <strong>Showing:</strong> {productsToShow.length} products | 
+                      <strong className="ms-2">Total Qty Req:</strong> {productsToShow.reduce((sum, p) => sum + (p.qtyReq || 0), 0)} | 
+                      <strong className="ms-2">Total Qty Pending:</strong> {productsToShow.reduce((sum, p) => sum + (p.qtyPending || 0), 0)}
+                    </small>
+                  </div>
                   <Button
                     variant="success"
                     size="sm"
@@ -1130,34 +1146,43 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                         </td>
                         <td>
                           {(() => {
-                            // Check if any of the product's statuses includes "NA internally"
-                            const hasNAInternally = (item.statuses || []).some(status => 
-                              status === 'NA internally' || status === 'Market Purchase Initiated'
-                            );
+                            const isPending = (item.statuses || []).includes('Pending');
+                            const isNAInternally = (item.statuses || []).includes('NA internally');
+                            const isMarketPurchase = (item.statuses || []).includes('Market Purchase Initiated');
+                            
+                            // Show Reassign only for Pending or NA internally
+                            const canReassign = isPending || isNAInternally;
+                            // Show Reject for Pending, NA internally, or Market Purchase Initiated
+                            const canReject = isPending || isNAInternally || isMarketPurchase;
                             
                             return (
-                              <>
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  className="me-1 p-1"
-                                  onClick={() => handleReassignSingleProduct(idx)}
-                                  title={hasNAInternally ? "Reassign" : "Actions only available for NA internally products"}
-                                  disabled={!hasNAInternally}
-                                >
-                                  <i className="bi bi-arrow-repeat"></i>
-                                </Button>
-                                <Button
-                                  variant="outline-danger"
-                                  size="sm"
-                                  className="p-1"
-                                  onClick={() => handleRejectSingleProduct(idx)}
-                                  title={hasNAInternally ? "Reject" : "Actions only available for NA internally products"}
-                                  disabled={!hasNAInternally}
-                                >
-                                  <i className="bi bi-x-circle"></i>
-                                </Button>
-                              </>
+                              <div className="d-flex gap-1">
+                                {canReassign && (
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    className="p-1"
+                                    onClick={() => handleReassignSingleProduct(idx)}
+                                    title="Reassign"
+                                  >
+                                    <i className="bi bi-arrow-repeat"></i>
+                                  </Button>
+                                )}
+                                {canReject && (
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    className="p-1"
+                                    onClick={() => handleRejectSingleProduct(idx)}
+                                    title="Reject"
+                                  >
+                                    <i className="bi bi-x-circle"></i>
+                                  </Button>
+                                )}
+                                {!canReassign && !canReject && (
+                                  <span className="text-muted small">-</span>
+                                )}
+                              </div>
                             );
                           })()}
                         </td>
