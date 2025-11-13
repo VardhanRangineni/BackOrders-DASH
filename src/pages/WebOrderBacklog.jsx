@@ -225,7 +225,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             age: order.age,
             totalItems: order.totalItems || '',
             orderRemarks: order.remarks || '',
-            lineId: item.lineId || '',
             product: item.product,
             sku: item.sku,
             qty: item.qty,
@@ -250,7 +249,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           age: order.age,
           totalItems: order.totalItems || '',
           orderRemarks: order.remarks || '',
-          lineId: '',
           product: '',
           sku: '',
           qty: 0,
@@ -277,7 +275,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       age: 'Age (Days)',
       totalItems: 'Total Items',
       orderRemarks: 'Order Remarks',
-      lineId: 'Line ID',
       product: 'Product',
       sku: 'SKU',
       qty: 'Qty Ordered',
@@ -1536,11 +1533,16 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   onChange={(e) => setStatusFilter(e.target.value)}
                   size="sm"
                 >
-                  <option value="All">All Statuses</option>
+                  <option value="All">All Status</option>
                   <option value="Approved">Approved</option>
                   <option value="Partially Fulfilled">Partially Fulfilled</option>
                   <option value="Fulfilled">Fulfilled</option>
                 </Form.Select>
+              </Col>
+              <Col xs={12} sm={4} md={3} lg={2} xl={2}>
+                <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
+                  Clear All
+                </Button>
               </Col>
             </Row>
             <Row className="g-2 mb-3 mt-2">
@@ -1548,7 +1550,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 <Button 
                   variant={naInternallyFilter ? "warning" : "outline-warning"}
                   onClick={() => setNaInternallyFilter(!naInternallyFilter)}
-                  className="w-100"
+                  className="w-100 mt-4"
                   size="sm"
                 >
                   {naInternallyFilter ? "✓ " : ""}NA Internally
@@ -1558,7 +1560,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 <Button 
                   variant={retriedOrdersFilter ? "info" : "outline-info"}
                   onClick={() => setRetriedOrdersFilter(!retriedOrdersFilter)}
-                  className="w-100"
+                  className="w-100 mt-4"
                   size="sm"
                 >
                   {retriedOrdersFilter ? "✓ " : ""}Retried Orders
@@ -1566,9 +1568,9 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
               </Col>
               <Col xs={12} sm={4} md={3} lg={2} xl={2}>
                 <Button 
-                  variant="danger"
+                  variant="outline-danger"
                   onClick={handleShowProducts}
-                  className="w-100"
+                  className="w-100 mt-4"
                   size="sm"
                   disabled={selectedRows.length === 0}
                 >
@@ -1576,12 +1578,13 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                 </Button>
               </Col>
               <Col xs={12} sm={8} md={6} lg={4} xl={3}>
+              <Form.Label className="small text-muted mb-1">Product Status</Form.Label>
                 <Form.Select
                   value={productStatusFilter}
                   onChange={(e) => setProductStatusFilter(e.target.value)}
                   size="sm"
                 >
-                  <option value="All">All Product Statuses</option>
+                  <option value="All">All Product Status</option>
                   <option value="Pending">Pending</option>
                   <option value="Draft Created">Draft Created</option>
                   <option value="TO Created">TO Created</option>
@@ -1594,11 +1597,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                   <option value="Market Purchase Initiated">Market Purchase Initiated</option>
                   <option value="NA in Market">NA in Market</option>
                 </Form.Select>
-              </Col>
-              <Col xs={12} sm={4} md={3} lg={2} xl={2}>
-                <Button variant="outline-secondary" onClick={handleClearFilters} className="w-100" size="sm">
-                  Clear All
-                </Button>
               </Col>
             </Row>
             </>
@@ -1619,20 +1617,25 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
           `}</style>
 
           {/* Table */}
-          <div className="table-responsive" ref={tableRef}>
-            <Table striped hover className="mb-0" size="sm" style={{ minWidth: '800px' }}>
-              <thead className="table-light">
+          <div
+            className="table-responsive bo-scroll-x"
+            ref={tableRef}
+            style={{ overflow: 'auto', maxWidth: '1350px', WebkitOverflowScrolling: 'touch' }}
+          >
+            <Table striped hover className="mb-0" size="sm" style={{ minWidth: '900px' }}>
+              <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#f8f9fa' }}>
                 <tr>
-                  <th style={{ width: '120px', minWidth: '120px' }}>
+                  <th style={{ width: '100px', minWidth: '100px' }}>
                     <Button
                       variant={selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "primary" : "outline-primary"}
                       size="sm"
                       onClick={handleSelectAllOrders}
-                      className="w-100"
+                      style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
                     >
-                      {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect All" : "Select All"}
+                      {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect" : "Select"}
                     </Button>
                   </th>
+
                   <th style={{ minWidth: '120px' }}>Web Order ID</th>
                   <th style={{ minWidth: '100px' }}>Status</th>
                   <th style={{ minWidth: '120px' }}>Linked Doc</th>

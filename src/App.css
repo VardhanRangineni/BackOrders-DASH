@@ -1,3 +1,24 @@
+/* Utility: enforce horizontal scroll inside containers */
+.bo-scroll-x {
+  overflow-x: auto !important;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Visible horizontal scrollbar styling to ensure discoverability */
+.bo-scroll-x::-webkit-scrollbar {
+  height: 10px;
+}
+.bo-scroll-x::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.bo-scroll-x::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+.bo-scroll-x::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
 /* Ensure Bootstrap Carousel indicators (dots) are visible and positioned for KPI slider */
 .carousel-indicators {
   position: absolute;
@@ -886,7 +907,9 @@ p.text-secondary {
 }
 
 .table-responsive {
-  overflow: visible !important;
+  /* Allow dropdowns to overflow vertically while preserving horizontal scroll */
+  overflow-y: visible !important;
+  overflow-x: auto !important;
 }
 
 tr { vertical-align: middle; }

@@ -560,40 +560,94 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   };
 
   const handleDownload = () => {
-    // Export one row per order. If order has multiple products, merge them into a single cell.
-    const exportData = filteredOrders.map(order => {
-      const items = order.items && order.items.length > 0 ? order.items : (order.product ? [{ product: order.product, sku: order.sku, qtyReq: order.qtyReq ?? order.qty ?? 0, qtyFulfilled: order.qtyFulfilled ?? 0 }] : []);
+    // Enhanced export with both TO/PO details AND product details
+    const exportData = [];
+    
+    filteredOrders.forEach(order => {
+      const items = order.items && order.items.length > 0 
+        ? order.items 
+        : (order.product ? [{ 
+            product: order.product, 
+            sku: order.sku, 
+            qtyReq: order.qtyReq ?? order.qty ?? 0, 
+            qtyFulfilled: order.qtyFulfilled ?? 0,
+            status: order.status || 'Unknown'
+          }] : []);
 
-      const qtyReq = items.reduce((s, it) => s + (it.qtyReq ?? it.qty ?? 0), 0);
-      const qtyFulfilled = items.reduce((s, it) => s + (it.qtyFulfilled ?? 0), 0);
-      const qtyPending = Math.max(0, qtyReq - qtyFulfilled);
-
-      const products = items.map(it => `${it.product || it.name || '-'} (${it.sku || ''}) x${it.qtyReq ?? it.qty ?? 0}`).join(' | ');
-
-      return {
-        id: order.id,
-        type: order.type || '',
-        docId: order.docId || '',
-        webOrder: order.webOrder || '',
-        batchId: order.batchId || '',
-        status: order.status || '',
-        qtyReq,
-        qtyFulfilled,
-        products,
-        qtyPending,
-        remarks: order.remarks || '',
-        created: order.created || ''
-      };
+      if (items.length === 0) {
+        // Order with no items - export just the order row
+        exportData.push({
+          recordId: order.id,
+          orderType: order.type || '',
+          topoId: order.docId || '',
+          webOrder: order.webOrder || '',
+          sourceLocation: order.source || '',
+          destinationLocation: order.destination || '',
+          recordStatus: order.recordStatus || order.status || '',
+          topoStatus: order.status || order.trackingStatus || 'Generated',
+          createdDateTime: order.created || '',
+          createdBy: order.createdBy || 'System',
+          remarks: order.remarks || '',
+          productLineId: '',
+          productName: '',
+          productSKU: '',
+          productQtyReq: '',
+          productQtyFulfilled: '',
+          productQtyPending: '',
+          productStatus: ''
+        });
+      } else {
+        // Export one row per product line item
+        items.forEach(item => {
+          const qtyReq = item.qtyReq ?? item.qty ?? 0;
+          const qtyFulfilled = item.qtyFulfilled ?? 0;
+          const qtyPending = Math.max(0, qtyReq - qtyFulfilled);
+          
+          exportData.push({
+            recordId: order.id,
+            orderType: order.type || '',
+            topoId: order.docId || '',
+            webOrder: order.webOrder || '',
+            sourceLocation: order.source || '',
+            destinationLocation: order.destination || '',
+            recordStatus: order.recordStatus || order.status || '',
+            topoStatus: order.status || order.trackingStatus || 'Generated',
+            createdDateTime: order.created || '',
+            createdBy: order.createdBy || 'System',
+            remarks: order.remarks || '',
+            productName: item.product || item.name || '',
+            productSKU: item.sku || '',
+            productQtyReq: qtyReq,
+            productQtyFulfilled: qtyFulfilled,
+            productQtyPending: qtyPending,
+            productStatus: item.status || ''
+          });
+        });
+      }
     });
 
     const headers = {
-      id: 'Draft ID', type: 'Type', docId: 'TO/PO ID', webOrder: 'Web Order', batchId: 'Batch ID',
-      status: 'Order Status', qtyReq: 'Qty Req.', qtyFulfilled: 'Qty Fulfilled', products: 'Products', qtyPending: 'Qty Pending',
-      remarks: 'Order Remarks', created: 'Created'
+      recordId: 'Record ID',
+      orderType: 'Order Type',
+      topoId: 'TO/PO ID',
+      webOrder: 'Linked Web Order No',
+      sourceLocation: 'Source Location',
+      destinationLocation: 'Destination Location',
+      recordStatus: 'Record Status',
+      topoStatus: 'TO/PO Status',
+      createdDateTime: 'Created Date/Time',
+      createdBy: 'Created By',
+      remarks: 'Remarks/Reason',
+      productName: 'Product Name',
+      productSKU: 'Product SKU',
+      productQtyReq: 'Product Qty Requested',
+      productQtyFulfilled: 'Product Qty Fulfilled',
+      productQtyPending: 'Product Qty Pending',
+      productStatus: 'Product Status'
     };
 
-    exportToCSV(exportData, headers, 'sourcing_export.csv');
-    onShowToast(`Exported ${exportData.length} orders to sourcing_export.csv`);
+    exportToCSV(exportData, headers, 'topo_detailed_export.csv');
+    onShowToast(`Exported ${filteredOrders.length} TO/PO orders with ${exportData.length} product line items to topo_detailed_export.csv`);
   };
 
   const handleViewDetails = (order) => {
@@ -620,7 +674,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   };
 
   return (
-  <div className="px-2 px-md-3">
+  <div className="px-2 px-md-3" style={{ width: '100%' }}>
       <h2 className="mb-3 mb-md-4 fw-bold fs-4 fs-md-3">TO/PO Tracking Dashboard</h2>
      
 
@@ -744,7 +798,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <Button 
                   variant={showMarketPurchaseOnly ? "warning" : "outline-warning"} 
                   onClick={() => setShowMarketPurchaseOnly(!showMarketPurchaseOnly)}
-                  className="w-100"
+                  className="w-100 mt-4"
                   size="sm"
                 >
                   {showMarketPurchaseOnly ? "✓ " : ""}NA Internally
@@ -754,7 +808,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <Button 
                   variant={showRetryOnly ? "info" : "outline-info"} 
                   onClick={() => setShowRetryOnly(!showRetryOnly)}
-                  className="w-100"
+                  className="w-100 mt-4"
                   size="sm"
                 >
                   {showRetryOnly ? "✓ " : ""}Retried Orders
@@ -764,7 +818,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 <Button 
                   variant="outline-danger"
                   onClick={handleShowProducts}
-                  className="w-100"
+                  className="w-100 mt-4"
                   size="sm"
                   disabled={selectedRows.length === 0}
                 >
@@ -772,12 +826,13 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                 </Button>
               </Col>
               <Col xs={12} sm={8} md={6} lg={4} xl={3}>
+              <Form.Label className="small text-muted mb-1">Product Status</Form.Label>
                 <Form.Select
                   value={productStatusFilter}
                   onChange={(e) => setProductStatusFilter(e.target.value)}
                   size="sm"
                 >
-                  <option value="All">All Product Statuses</option>
+                  <option value="All">All Product Status</option>
                   <option value="Pending">Pending</option>
                   <option value="Draft Created">Draft Created</option>
                   <option value="TO Created">TO Created</option>
@@ -796,20 +851,23 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           )}
 
 
-
           {/* Table */}
-          <div className="table-responsive" ref={tableRef}>
-            <Table striped hover className="mb-0" size="sm" style={{ minWidth: '900px' }}>
-              <thead className="table-light">
+          <div
+            className="table-responsive bo-scroll-x"
+            ref={tableRef}
+            style={{ overflow: 'auto', maxWidth: '1350px', WebkitOverflowScrolling: 'touch' }}
+          >
+            <Table striped hover className="mb-0" size="sm" style={{ minWidth: '1800px' }}>
+              <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#f8f9fa' }}>
                 <tr>
-                  <th style={{ width: '120px', minWidth: '120px' }}>
+                  <th style={{ width: '100px', minWidth: '100px' }}>
                     <Button
                       variant={selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "primary" : "outline-primary"}
                       size="sm"
                       onClick={handleSelectAll}
-                      className="w-100"
+                      style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
                     >
-                      {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect All" : "Select All"}
+                      {selectedRows.length === filteredOrders.length && filteredOrders.length > 0 ? "Deselect" : "Select"}
                     </Button>
                   </th>
                   <th style={{ minWidth: '120px' }}>Record ID</th>
