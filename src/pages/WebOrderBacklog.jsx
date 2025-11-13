@@ -21,7 +21,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   const [productsToShow, setProductsToShow] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
   const [productStatusFilter, setProductStatusFilter] = useState(['All']);
-  const [selectedProducts, setSelectedProducts] = useState([]);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [currentProductIndex, setCurrentProductIndex] = useState(null);
@@ -50,7 +49,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
         return order;
       }));
     }
-  }, []);
+  }, [setWebOrders]);
 
   // Apply initial filters when component mounts or filters change
   useEffect(() => {
@@ -222,7 +221,6 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       return;
     }
     buildProductsToShow();
-    setSelectedProducts([]);
     setShowProductsModal(true);
   };
 
