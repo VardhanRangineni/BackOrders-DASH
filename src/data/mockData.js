@@ -1061,7 +1061,7 @@ export const sourcingOrders = [
     batchId: 'BATCH-2025-F',
     source: 'S-BAN-05',
     destination: 'WH-CENTRAL-01',
-    recordStatus: 'Fulfilled',
+    recordStatus: 'Partially Fulfilled',
     status: 'Received',
     created: '2025-11-02 15:00:00',
     lastUpdated: '2025-11-03 10:00:00',

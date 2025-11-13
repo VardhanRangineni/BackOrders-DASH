@@ -189,17 +189,17 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   // Product selection handlers
   const handleSelectAllProducts = (e) => {
     if (e.target.checked) {
-      // Only select products that have "NA internally" or "Market Purchase Initiated" status
-      const naInternallyIndexes = productsToShow
+      // Only select products that are actionable (Pending, NA internally, or Market Purchase Initiated)
+      const selectableIndexes = productsToShow
         .map((item, idx) => {
-          const hasNAInternally = (item.statuses || []).some(status => 
-            status === 'NA internally' || status === 'Market Purchase Initiated'
+          const hasActionableStatus = (item.statuses || []).some(status => 
+            status === 'Pending' || status === 'NA internally' || status === 'Market Purchase Initiated'
           );
-          return hasNAInternally ? idx : null;
+          return hasActionableStatus ? idx : null;
         })
         .filter(idx => idx !== null);
       
-      setSelectedProducts(naInternallyIndexes);
+      setSelectedProducts(selectableIndexes);
     } else {
       setSelectedProducts([]);
     }
@@ -234,36 +234,71 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     setShowRejectModal(true);
   };
 
-  const confirmReassign = () => {
-    if (!reassignData.reason) {
-      onShowToast('Please provide a reason for reassignment');
-      return;
-    }
+  // Raise Market Purchase for NA internally items
+  const handleRaiseMarketPurchase = (idx) => {
+    const updated = [...productsToShow];
+    // Update local modal list
+    updated[idx] = {
+      ...updated[idx],
+      status: 'Market Purchase Initiated'
+    };
+    (updated[idx].draftIds || []).forEach(draftId => {
+      updated[idx].statusByDraft[draftId] = 'Market Purchase Initiated';
+    });
+    setProductsToShow(updated);
 
-    // Filter to only process NA internally products
+    // Persist to sourcingOrders
+    const prod = productsToShow[idx];
+    setSourcingOrders(prevOrders => prevOrders.map(order => {
+      if (!order.items) return order;
+      const updatedItems = order.items.map(item => {
+        const matches =
+          (item.lineId && prod.lineId && item.lineId === prod.lineId && order.id && prod.draftIds && prod.draftIds.includes(order.id)) ||
+          (item.sku === prod.sku && prod.draftIds && prod.draftIds.length === 1 && prod.draftIds[0] === order.id);
+        if (matches) {
+          return {
+            ...item,
+            status: 'Market Purchase Initiated',
+            sourceType: 'Market Purchase',
+            source: 'Market'
+          };
+        }
+        return item;
+      });
+      return { ...order, items: updatedItems };
+    }));
+
+    onShowToast(`Raised Market Purchase for ${prod.sku}`);
+  };
+
+  const confirmReassign = () => {
+    // Reason optional – default if empty
+    const reassignmentReason = reassignData.reason && reassignData.reason.trim() !== '' ? reassignData.reason : 'No reason provided';
+
+    // Filter to only process products with eligible status (Pending only)
     const validSelectedProducts = currentProductIndex === 'bulk' 
       ? selectedProducts.filter(idx => {
           const item = productsToShow[idx];
           return (item.statuses || []).some(status => 
-            status === 'NA internally' || status === 'Market Purchase Initiated'
+            status === 'Pending'
           );
         })
       : [currentProductIndex];
 
-    // Check if current single product is NA internally
+    // Check if current single product has an eligible status
     if (currentProductIndex !== 'bulk') {
       const item = productsToShow[currentProductIndex];
-      const hasNAInternally = (item.statuses || []).some(status => 
-        status === 'NA internally' || status === 'Market Purchase Initiated'
+      const hasEligibleStatus = (item.statuses || []).some(status => 
+        status === 'Pending'
       );
-      if (!hasNAInternally) {
-        onShowToast('Reassign action is only available for NA internally products');
+      if (!hasEligibleStatus) {
+        onShowToast('Reassign action is only available for Pending products');
         return;
       }
     }
 
     if (validSelectedProducts.length === 0) {
-      onShowToast('No valid NA internally products selected for reassignment');
+      onShowToast('No valid Pending products selected for reassignment');
       return;
     }
 
@@ -275,7 +310,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           ...updatedProductsToShow[idx],
           status: 'Pending',
           reassignedTo: reassignData.source || 'Auto-Select',
-          reassignReason: reassignData.reason
+          reassignReason: reassignmentReason
         };
         // Update statusByDraft for all drafts
         (updatedProductsToShow[idx].draftIds || []).forEach(draftId => {
@@ -287,7 +322,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         ...updatedProductsToShow[currentProductIndex],
         status: 'Pending',
         reassignedTo: reassignData.source || 'Auto-Select',
-        reassignReason: reassignData.reason
+        reassignReason: reassignmentReason
       };
       // Update statusByDraft for all drafts
       (updatedProductsToShow[currentProductIndex].draftIds || []).forEach(draftId => {
@@ -324,7 +359,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
             ...item,
             status: 'Pending',
             reassignedTo: reassignData.source || 'Auto-Select',
-            reassignReason: reassignData.reason
+            reassignReason: reassignmentReason
           };
         }
         return item;
@@ -333,7 +368,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
     }));
     
     if (currentProductIndex === 'bulk') {
-      onShowToast(`Reassigned ${selectedProducts.length} selected products to ${reassignData.source || 'Auto-Select'}`);
+      onShowToast(`Reassigned ${validSelectedProducts.length} selected products to ${reassignData.source || 'Auto-Select'}`);
       setSelectedProducts([]);
     } else {
       onShowToast(`Reassigned product ${productsToShow[currentProductIndex]?.sku} to ${reassignData.source || 'Auto-Select'}`);
@@ -344,10 +379,8 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
   };
 
   const confirmReject = () => {
-    if (!rejectData.reason) {
-      onShowToast('Please provide a reason for rejection');
-      return;
-    }
+    // Reason optional – default if empty
+    const rejectionReason = rejectData.reason && rejectData.reason.trim() !== '' ? rejectData.reason : 'No reason provided';
     
     // Update productsToShow immediately for instant UI feedback
     const updatedProductsToShow = [...productsToShow];
@@ -356,9 +389,9 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         updatedProductsToShow[idx] = {
           ...updatedProductsToShow[idx],
           status: 'Rejected',
-          rejectReason: rejectData.reason,
+          rejectReason: rejectionReason,
           rejectType: rejectData.type,
-          remarks: `${updatedProductsToShow[idx].remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectData.reason}`
+          remarks: `${updatedProductsToShow[idx].remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectionReason}`
         };
         // Update statusByDraft for all drafts
         (updatedProductsToShow[idx].draftIds || []).forEach(draftId => {
@@ -369,9 +402,9 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
       updatedProductsToShow[currentProductIndex] = {
         ...updatedProductsToShow[currentProductIndex],
         status: 'Rejected',
-        rejectReason: rejectData.reason,
+        rejectReason: rejectionReason,
         rejectType: rejectData.type,
-        remarks: `${updatedProductsToShow[currentProductIndex].remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectData.reason}`
+        remarks: `${updatedProductsToShow[currentProductIndex].remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectionReason}`
       };
       // Update statusByDraft for all drafts
       (updatedProductsToShow[currentProductIndex].draftIds || []).forEach(draftId => {
@@ -407,9 +440,9 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
           return {
             ...item,
             status: 'Rejected',
-            rejectReason: rejectData.reason,
+            rejectReason: rejectionReason,
             rejectType: rejectData.type,
-            remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectData.reason}`
+            remarks: `${item.remarks || ''}\n[${new Date().toLocaleString()}] Rejected: ${rejectionReason}`
           };
         }
         return item;
@@ -1092,9 +1125,9 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                       const fulfilled = item.qtyFulfilled ?? 0;
                       const pending = Math.max(0, req - fulfilled);
                       
-                      // Check if any of the product's statuses includes "NA internally" or "Market Purchase Initiated"
-                      const hasNAInternally = (item.statuses || []).some(status => 
-                        status === 'NA internally' || status === 'Market Purchase Initiated'
+                      // Check if any of the product's statuses is actionable
+                      const canSelectProduct = (item.statuses || []).some(status => 
+                        status === 'Pending' || status === 'NA internally' || status === 'Market Purchase Initiated'
                       );
                       
                       return (
@@ -1105,8 +1138,8 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                             checked={selectedProducts.includes(idx)}
                             onChange={() => handleProductSelect(idx)}
                             aria-label={`Select product ${item.sku}`}
-                            disabled={!hasNAInternally}
-                            title={hasNAInternally ? "" : "Selection only available for NA internally products"}
+                            disabled={!canSelectProduct}
+                            title={canSelectProduct ? "" : "Selection only available for actionable products"}
                           />
                         </td>
                         <td>{item.sku}</td>
@@ -1153,10 +1186,10 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                             const isNAInternally = (item.statuses || []).includes('NA internally');
                             const isMarketPurchase = (item.statuses || []).includes('Market Purchase Initiated');
                             
-                            // Show Reassign only for Pending or NA internally
-                            const canReassign = isPending || isNAInternally;
-                            // Show Reject for Pending, NA internally, or Market Purchase Initiated
-                            const canReject = isPending || isNAInternally || isMarketPurchase;
+                            // Reassign only for Pending
+                            const canReassign = isPending;
+                            // Reject only for Pending or Market Purchase Initiated
+                            const canReject = isPending || isMarketPurchase;
                             
                             return (
                               <div className="d-flex gap-1">
@@ -1171,6 +1204,17 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                                     <i className="bi bi-arrow-repeat"></i>
                                   </Button>
                                 )}
+                                {isNAInternally && (
+                                  <Button
+                                    variant="outline-warning"
+                                    size="sm"
+                                    className="p-1"
+                                    onClick={() => handleRaiseMarketPurchase(idx)}
+                                    title="Raise Market Purchase"
+                                  >
+                                    <i className="bi bi-bag-plus"></i>
+                                  </Button>
+                                )}
                                 {canReject && (
                                   <Button
                                     variant="outline-danger"
@@ -1182,7 +1226,7 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
                                     <i className="bi bi-x-circle"></i>
                                   </Button>
                                 )}
-                                {!canReassign && !canReject && (
+                                {!canReassign && !canReject && !isNAInternally && (
                                   <span className="text-muted small">-</span>
                                 )}
                               </div>

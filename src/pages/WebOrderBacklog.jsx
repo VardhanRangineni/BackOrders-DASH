@@ -234,25 +234,19 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
     setShowRejectModal(true);
   };
 
-  const confirmReassign = () => {
-    if (!reassignData.reason) {
-      onShowToast('Please provide a reason for reassignment');
-      return;
-    }
-
-    const product = productsToShow[currentProductIndex];
+  // Raise Market Purchase for NA internally items from products modal
+  const handleRaiseMarketPurchaseProduct = (idx) => {
+    const product = productsToShow[idx];
+    // Update localStorage temp changes across all related orders
     const tempChanges = JSON.parse(localStorage.getItem('webOrderTempChanges') || '{}');
-
-    // Update all affected orders
-    product.orderIds.forEach(orderId => {
+    (product.orderIds || []).forEach(orderId => {
       if (!tempChanges[orderId]) tempChanges[orderId] = {};
       tempChanges[orderId][product.sku] = {
-        status: 'Pending',
-        reassignedTo: reassignData.source || 'Auto-Select',
-        reassignReason: reassignData.reason
+        status: 'Market Purchase Initiated',
+        sourceType: 'Market Purchase',
+        source: 'Market'
       };
     });
-
     localStorage.setItem('webOrderTempChanges', JSON.stringify(tempChanges));
 
     // Update in-memory state
@@ -264,9 +258,60 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
             item.sku === product.sku
               ? {
                   ...item,
+                  status: 'Market Purchase Initiated',
+                  sourceType: 'Market Purchase',
+                  source: 'Market'
+                }
+              : item
+          )
+        };
+      }
+      return order;
+    }));
+
+    // Refresh the grid
+    buildProductsToShow();
+    onShowToast(`Raised Market Purchase for ${product.sku}`);
+  };
+
+  const confirmReassign = () => {
+    // Reason optional – default if empty
+    const reassignmentReason = reassignData.reason && reassignData.reason.trim() !== '' ? reassignData.reason : 'No reason provided';
+
+    const product = productsToShow[currentProductIndex];
+    const hasEligibleStatus = (product.statuses || []).some(status => 
+      status === 'Pending'
+    );
+    if (!hasEligibleStatus) {
+      onShowToast('Reassign action is only available for Pending products');
+      return;
+    }
+    const tempChanges = JSON.parse(localStorage.getItem('webOrderTempChanges') || '{}');
+
+     // Update all affected orders
+    product.orderIds.forEach(orderId => {
+      if (!tempChanges[orderId]) tempChanges[orderId] = {};
+      tempChanges[orderId][product.sku] = {
+        status: 'Pending',
+        reassignedTo: reassignData.source || 'Auto-Select',
+         reassignReason: reassignmentReason
+      };
+    });
+
+    localStorage.setItem('webOrderTempChanges', JSON.stringify(tempChanges));
+
+    // Update in-memory state
+    setWebOrders(prevOrders => prevOrders.map(order => {
+      if (product.orderIds.includes(order.id) && order.items) {
+        return {
+          ...order,
+           items: order.items.map(item =>
+            item.sku === product.sku
+              ? {
+                  ...item,
                   status: 'Pending',
                   reassignedTo: reassignData.source || 'Auto-Select',
-                  reassignReason: reassignData.reason
+                   reassignReason: reassignmentReason
                 }
               : item
           )
@@ -282,20 +327,18 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
   };
 
   const confirmReject = () => {
-    if (!rejectData.reason) {
-      onShowToast('Please provide a reason for rejection');
-      return;
-    }
+    // Reason optional – default if empty
+    const rejectionReason = rejectData.reason && rejectData.reason.trim() !== '' ? rejectData.reason : 'No reason provided';
 
     const product = productsToShow[currentProductIndex];
     const tempChanges = JSON.parse(localStorage.getItem('webOrderTempChanges') || '{}');
 
-    // Update all affected orders
+     // Update all affected orders
     product.orderIds.forEach(orderId => {
       if (!tempChanges[orderId]) tempChanges[orderId] = {};
       tempChanges[orderId][product.sku] = {
         status: 'Rejected',
-        rejectReason: rejectData.reason,
+         rejectReason: rejectionReason,
         rejectType: rejectData.type
       };
     });
@@ -307,12 +350,12 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
       if (product.orderIds.includes(order.id) && order.items) {
         return {
           ...order,
-          items: order.items.map(item =>
+           items: order.items.map(item =>
             item.sku === product.sku
               ? {
                   ...item,
                   status: 'Rejected',
-                  rejectReason: rejectData.reason,
+                   rejectReason: rejectionReason,
                   rejectType: rejectData.type
                 }
               : item
@@ -1970,10 +2013,10 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                           const isNAInternally = item.statuses.includes('NA internally');
                           const isMarketPurchase = item.statuses.includes('Market Purchase Initiated');
                           
-                          // Show Reassign only for Pending or NA internally
-                          const canReassign = isPending || isNAInternally;
-                          // Show Reject for Pending, NA internally, or Market Purchase Initiated
-                          const canReject = isPending || isNAInternally || isMarketPurchase;
+                          // Reassign only for Pending
+                          const canReassign = isPending;
+                          // Reject for Pending or Market Purchase Initiated (not for NA internally)
+                          const canReject = isPending || isMarketPurchase;
                           
                           return (
                             <div className="d-flex gap-1">
@@ -1988,6 +2031,17 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                                   <i className="bi bi-arrow-repeat"></i>
                                 </Button>
                               )}
+                            {isNAInternally && (
+                              <Button
+                                variant="outline-warning"
+                                size="sm"
+                                className="p-1"
+                                onClick={() => handleRaiseMarketPurchaseProduct(idx)}
+                                title="Raise Market Purchase"
+                              >
+                                <i className="bi bi-bag-plus"></i>
+                              </Button>
+                            )}
                               {canReject && (
                                 <Button
                                   variant="outline-danger"
@@ -1999,7 +2053,7 @@ const WebOrderBacklog = ({ webOrders, setWebOrders, onShowToast, onOpenModal, hi
                                   <i className="bi bi-x-circle"></i>
                                 </Button>
                               )}
-                              {!canReassign && !canReject && (
+                          {!canReassign && !canReject && !isNAInternally && (
                                 <span className="text-muted small">-</span>
                               )}
                             </div>
