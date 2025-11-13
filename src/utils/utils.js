@@ -49,25 +49,26 @@ export const getEnhancedProductStatus = (status, qtyReq = 0, qtyFulfilled = 0) =
   const hasFulfillment = qtyFulfilled && qtyFulfilled > 0;
   const isFullyFulfilled = hasFulfillment && (qtyReq <= 0 || qtyFulfilled >= qtyReq);
 
-  switch (status) {
-    case 'NA internally':
-      if (hasFulfillment) {
-        return isFullyFulfilled ? 'Fully Fulfilled from GRN' : 'Partially Fulfilled from GRN';
-      }
-      return status;
-    case 'Market Purchase Initiated':
-      if (hasFulfillment) {
-        return isFullyFulfilled ? 'Fully Fulfilled from Market' : 'Partially Fulfilled from Market';
-      }
-      return status;
-    case 'NA in Market':
-      if (hasFulfillment) {
-        return isFullyFulfilled ? 'Fully Fulfilled from Other Sources' : 'Partially Fulfilled from Other Sources';
-      }
-      return status;
-    default:
-      return status;
+  // Custom logic for status display
+  if (status === 'NA internally') {
+    if (hasFulfillment) {
+      return `NA Internally:-\n${isFullyFulfilled ? 'Fully Fulfilled from GRN' : 'Partially Fulfilled from GRN'}`;
+    }
+    return status;
   }
+  if (status === 'Market Purchase Initiated') {
+    if (hasFulfillment) {
+      return `Market Purchase Initiated:-\n${isFullyFulfilled ? 'Fully Fulfilled from Market' : 'Partially Fulfilled from Market'}`;
+    }
+    return status;
+  }
+  if (status === 'NA in Market') {
+    if (hasFulfillment) {
+      return `NA in Market:-\n${isFullyFulfilled ? 'Fully Fulfilled from Other Sources' : 'Partially Fulfilled from Other Sources'}`;
+    }
+    return status;
+  }
+  return status;
 };
 
 export const getStatusBadgeClass = (status) => {

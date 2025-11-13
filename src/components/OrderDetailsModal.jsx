@@ -44,8 +44,18 @@ const OrderDetailsModal = ({ order, onProductAction }) => {
       actions.push({ value: 'view_linked_to_po', label: 'View Linked TO/PO', icon: 'bi-link-45deg' });
     }
 
-    // Raise Market Purchase for NA internally products
-    if (item.status === 'NA internally') {
+    // Only show Raise Market Purchase for specific partially fulfilled states
+    const partiallyFulfilledStatuses = [
+      'partially fulfilled',
+      'partially fulfilled internally',
+      'partially fulfilled from GRN',
+      'partially fulfilled from market',
+      'partially filfilled',
+      'partially filfilled internally',
+      'partially filfilled from GRN',
+      'partially filfilled from market'
+    ];
+    if (item.status && partiallyFulfilledStatuses.map(s => s.toLowerCase()).includes(item.status.toLowerCase())) {
       actions.push({ value: 'raise_market_purchase', label: 'Raise Market Purchase', icon: 'bi-cart-plus' });
     }
 

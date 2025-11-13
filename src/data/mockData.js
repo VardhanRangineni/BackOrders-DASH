@@ -1,3 +1,168 @@
+// --- MOCK DATA FOR STATUS LOGIC TESTS ---
+export const statusLogicTestRecords = [
+  {
+    id: 'RECORD-2025-GRN-TEST-PARTIAL',
+    type: 'TO',
+    docId: 'GRN-2025-TEST-PARTIAL',
+    webOrder: 'WO-2025-GRN-TEST',
+    source: 'Central GRN',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-20 10:00:00',
+    lastUpdated: '2025-11-20 10:00:00',
+    createdBy: 'System',
+    remarks: 'Test partial GRN fulfillment',
+    retry: 1,
+    qtyReq: 100,
+    qtyFulfilled: 60,
+    items: [
+      {
+        lineId: 'GRN-TEST-1',
+        product: 'Test Product GRN Partial',
+        sku: 'TEST-GRN-PARTIAL',
+        qtyReq: 100,
+        qtyFulfilled: 60,
+        status: 'NA internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-GRN-TEST-FULL',
+    type: 'TO',
+    docId: 'GRN-2025-TEST-FULL',
+    webOrder: 'WO-2025-GRN-TEST',
+    source: 'Central GRN',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-20 12:00:00',
+    lastUpdated: '2025-11-20 12:00:00',
+    createdBy: 'System',
+    remarks: 'Test full GRN fulfillment',
+    retry: 1,
+    qtyReq: 100,
+    qtyFulfilled: 100,
+    items: [
+      {
+        lineId: 'GRN-TEST-2',
+        product: 'Test Product GRN Full',
+        sku: 'TEST-GRN-FULL',
+        qtyReq: 100,
+        qtyFulfilled: 100,
+        status: 'NA internally'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MP-TEST-PARTIAL',
+    type: 'Market Purchase',
+    docId: 'MP-2025-TEST-PARTIAL',
+    webOrder: 'WO-2025-MP-TEST',
+    source: 'Market Vendor - MV-TEST',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-21 09:00:00',
+    lastUpdated: '2025-11-21 09:00:00',
+    createdBy: 'System',
+    remarks: 'Test partial market purchase',
+    retry: 1,
+    qtyReq: 80,
+    qtyFulfilled: 40,
+    items: [
+      {
+        lineId: 'MP-TEST-1',
+        product: 'Test Product Market Partial',
+        sku: 'TEST-MKT-PARTIAL',
+        qtyReq: 80,
+        qtyFulfilled: 40,
+        status: 'Market Purchase Initiated'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-MP-TEST-FULL',
+    type: 'Market Purchase',
+    docId: 'MP-2025-TEST-FULL',
+    webOrder: 'WO-2025-MP-TEST',
+    source: 'Market Vendor - MV-TEST',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-21 11:00:00',
+    lastUpdated: '2025-11-21 11:00:00',
+    createdBy: 'System',
+    remarks: 'Test full market purchase',
+    retry: 2,
+    qtyReq: 80,
+    qtyFulfilled: 80,
+    items: [
+      {
+        lineId: 'MP-TEST-2',
+        product: 'Test Product Market Full',
+        sku: 'TEST-MKT-FULL',
+        qtyReq: 80,
+        qtyFulfilled: 80,
+        status: 'Market Purchase Initiated'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-NAM-TEST-PARTIAL',
+    type: 'TO',
+    docId: 'NAM-2025-TEST-PARTIAL',
+    webOrder: 'WO-2025-NAM-TEST',
+    source: 'Partner Store S-TEST',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Partially Fulfilled',
+    status: 'Received',
+    created: '2025-11-22 08:00:00',
+    lastUpdated: '2025-11-22 08:00:00',
+    createdBy: 'System',
+    remarks: 'Test partial alternate source',
+    retry: 1,
+    qtyReq: 60,
+    qtyFulfilled: 30,
+    items: [
+      {
+        lineId: 'NAM-TEST-1',
+        product: 'Test Product NAM Partial',
+        sku: 'TEST-NAM-PARTIAL',
+        qtyReq: 60,
+        qtyFulfilled: 30,
+        status: 'NA in Market'
+      }
+    ]
+  },
+  {
+    id: 'RECORD-2025-NAM-TEST-FULL',
+    type: 'TO',
+    docId: 'NAM-2025-TEST-FULL',
+    webOrder: 'WO-2025-NAM-TEST',
+    source: 'Partner Store S-TEST',
+    destination: 'WH-CENTRAL-01',
+    recordStatus: 'Fulfilled',
+    status: 'Received',
+    created: '2025-11-22 10:00:00',
+    lastUpdated: '2025-11-22 10:00:00',
+    createdBy: 'System',
+    remarks: 'Test full alternate source',
+    retry: 2,
+    qtyReq: 60,
+    qtyFulfilled: 60,
+    items: [
+      {
+        lineId: 'NAM-TEST-2',
+        product: 'Test Product NAM Full',
+        sku: 'TEST-NAM-FULL',
+        qtyReq: 60,
+        qtyFulfilled: 60,
+        status: 'NA in Market'
+      }
+    ]
+  }
+];
 // Mock Data for MedPlus Back Order Fulfilment System
 // Updated with statuses as per requirements document
 
