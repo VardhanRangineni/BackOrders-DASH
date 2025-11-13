@@ -141,7 +141,10 @@ const SourcingView = ({ sourcingOrders, setSourcingOrders, onShowToast, onOpenMo
         const key = `${order.webOrder}__${item.sku}`;
         const newerRetryExists = retryMap.has(key) && retryMap.get(key).id !== order.id;
         
-        if (newerRetryExists && pending > 0) {
+        // Only apply this exclusion when viewing "All" statuses. If a specific
+        // status (e.g., "Partially Fulfilled Internally") is selected, we should
+        // still show those items even if a newer retry exists.
+        if (isAllSelected && newerRetryExists && pending > 0) {
           // Don't include this item in unfulfilled products since a newer retry draft will handle it
           return;
         }
